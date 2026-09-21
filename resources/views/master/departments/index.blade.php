@@ -197,9 +197,9 @@
         </div>
 
         <!-- Filter Toolbar -->
-        <div class="card-toolbar flex-row-fluid justify-content-end gap-5">
+        <div class="card-toolbar d-flex align-items-center gap-3">
             <!-- Filter Status -->
-            <div class="w-100 mw-150px">
+            <div class="w-140px">
                 <select id="filter_status" class="form-select form-select-solid" data-control="select2" data-hide-search="true">
                     <option value="">Semua Status</option>
                     <option value="1">Aktif</option>
@@ -207,7 +207,7 @@
                 </select>
             </div>
             <!-- Filter Perusahaan (Tenant) -->
-            <div class="w-100 mw-200px">
+            <div class="w-180px">
                 <select id="filter_company" class="form-select form-select-solid" data-control="select2" data-hide-search="true">
                     <option value="">Semua Tenant</option>
                     @foreach($companies as $company)

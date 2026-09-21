@@ -37,7 +37,18 @@
                     </div>
                 </div>
 
-                <!-- Master Departemen (Fitur Kamu) -->
+                <!-- Master Perusahaan / Tenant (Superadmin) -->
+                <div class="menu-item">
+                    <a class="menu-link {{ request()->is('companies*') ? 'active' : '' }}" href="{{ url('/companies') }}">
+                        <span class="menu-icon">
+                            <i class="ki-duotone ki-shop fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
+                        </span>
+                        <span class="menu-title">Perusahaan (Tenant)</span>
+                        <span class="badge badge-light-primary fs-8 fw-bold ms-auto">Superadmin</span>
+                    </a>
+                </div>
+
+                <!-- Master Departemen -->
                 <div class="menu-item">
                     <a class="menu-link {{ request()->is('departments*') ? 'active' : '' }}" href="{{ url('/departments') }}">
                         <span class="menu-icon">
@@ -58,23 +69,25 @@
                     </a>
                 </div>
 
-                <!-- Master Aset Kantor -->
+                <!-- Master Aset Kantor (CMDB) -->
                 <div class="menu-item">
-                    <a class="menu-link {{ request()->is('assets*') ? 'active' : '' }}" href="#!">
+                    <a class="menu-link {{ request()->is('company-assets*') || request()->is('inventaris*') ? 'active' : '' }}" href="{{ url('/company-assets') }}">
                         <span class="menu-icon">
                             <i class="ki-duotone ki-devices fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
                         </span>
                         <span class="menu-title">Aset Kantor (CMDB)</span>
+                        <span class="badge badge-light-info fs-8 fw-bold ms-auto">Inventaris</span>
                     </a>
                 </div>
 
                 <!-- Master Kebijakan SLA -->
                 <div class="menu-item">
-                    <a class="menu-link {{ request()->is('sla*') ? 'active' : '' }}" href="#!">
+                    <a class="menu-link {{ request()->is('sla*') ? 'active' : '' }}" href="{{ url('/sla-policies') }}">
                         <span class="menu-icon">
                             <i class="ki-duotone ki-timer fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                         </span>
                         <span class="menu-title">Kebijakan SLA</span>
+                        <span class="badge badge-light-warning fs-8 fw-bold ms-auto">Matriks</span>
                     </a>
                 </div>
 

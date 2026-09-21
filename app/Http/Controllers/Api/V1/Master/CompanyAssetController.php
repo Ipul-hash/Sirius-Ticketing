@@ -16,19 +16,18 @@ class CompanyAssetController extends Controller
     public function index(Request $request, ?string $tenant = null): JsonResponse
     {
         $companyId = $this->resolveCompanyId($request, $tenant);
-        if ($companyId === null) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tenant perusahaan tidak ditemukan atau tidak valid.',
-            ], 404);
-        }
 
-        $query = CompanyAsset::where('company_id', $companyId)
+        $query = CompanyAsset::query()
             ->with([
+                'company:id,name,slug',
                 'department:id,name',
                 'assignedUser:id,name,email,job_title',
             ])
             ->withCount('tickets');
+
+        if ($companyId !== null) {
+            $query->where('company_id', $companyId);
+        }
 
         if ($request->filled('search')) {
             $search = $request->query('search');
@@ -77,8 +76,8 @@ class CompanyAssetController extends Controller
         if ($companyId === null) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tenant perusahaan tidak ditemukan atau tidak valid.',
-            ], 404);
+                'message' => 'Tenant perusahaan tidak ditemukan atau belum dipilih.',
+            ], 422);
         }
 
         $validated = $request->validate([
@@ -111,24 +110,25 @@ class CompanyAssetController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Aset inventaris berhasil ditambahkan.',
-            'data' => $asset->load(['department:id,name', 'assignedUser:id,name,email,job_title']),
+            'data' => $asset->load(['company:id,name,slug', 'department:id,name', 'assignedUser:id,name,email,job_title']),
         ], 201);
     }
 
-    public function show(Request $request, string|int $tenant, string|int $id): JsonResponse
+    public function show(Request $request, string $id, ?string $assetId = null): JsonResponse
     {
-        $companyId = $this->resolveCompanyId($request, (string) $tenant);
-        if ($companyId === null) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tenant perusahaan tidak ditemukan.',
-            ], 404);
+        $targetId = $assetId ?? $id;
+        $tenantSlug = $assetId !== null ? $id : null;
+        $companyId = $this->resolveCompanyId($request, $tenantSlug);
+
+        $query = CompanyAsset::query()
+            ->with(['company:id,name,slug', 'department:id,name', 'assignedUser:id,name,email,job_title'])
+            ->withCount('tickets');
+
+        if ($companyId !== null) {
+            $query->where('company_id', $companyId);
         }
 
-        $asset = CompanyAsset::where('company_id', $companyId)
-            ->with(['company:id,name,slug', 'department:id,name', 'assignedUser:id,name,email,job_title'])
-            ->withCount('tickets')
-            ->findOrFail($id);
+        $asset = $query->findOrFail($targetId);
 
         return response()->json([
             'success' => true,
@@ -137,17 +137,19 @@ class CompanyAssetController extends Controller
         ], 200);
     }
 
-    public function update(Request $request, string|int $tenant, string|int $id): JsonResponse
+    public function update(Request $request, string $id, ?string $assetId = null): JsonResponse
     {
-        $companyId = $this->resolveCompanyId($request, (string) $tenant);
-        if ($companyId === null) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tenant perusahaan tidak ditemukan.',
-            ], 404);
+        $targetId = $assetId ?? $id;
+        $tenantSlug = $assetId !== null ? $id : null;
+        $companyId = $this->resolveCompanyId($request, $tenantSlug);
+
+        $query = CompanyAsset::query();
+        if ($companyId !== null) {
+            $query->where('company_id', $companyId);
         }
 
-        $asset = CompanyAsset::where('company_id', $companyId)->findOrFail($id);
+        $asset = $query->findOrFail($targetId);
+        $targetCompanyId = $asset->company_id;
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:150',
@@ -157,7 +159,7 @@ class CompanyAssetController extends Controller
                 'string',
                 'max:50',
                 Rule::unique('company_assets', 'asset_tag')
-                    ->where('company_id', $companyId)
+                    ->where('company_id', $targetCompanyId)
                     ->ignore($asset->id),
             ],
             'serial_number' => 'nullable|string|max:100',
@@ -165,11 +167,11 @@ class CompanyAssetController extends Controller
             'status' => ['sometimes', 'required', Rule::enum(AssetStatus::class)],
             'department_id' => [
                 'nullable',
-                Rule::exists('departments', 'id')->where('company_id', $companyId),
+                Rule::exists('departments', 'id')->where('company_id', $targetCompanyId),
             ],
             'assigned_to_user_id' => [
                 'nullable',
-                Rule::exists('users', 'id')->where('company_id', $companyId),
+                Rule::exists('users', 'id')->where('company_id', $targetCompanyId),
             ],
             'notes' => 'nullable|string',
         ]);
@@ -179,21 +181,22 @@ class CompanyAssetController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Data aset inventaris berhasil diperbarui.',
-            'data' => $asset->load(['department:id,name', 'assignedUser:id,name,email,job_title']),
+            'data' => $asset->load(['company:id,name,slug', 'department:id,name', 'assignedUser:id,name,email,job_title']),
         ], 200);
     }
 
-    public function destroy(Request $request, string|int $tenant, string|int $id): JsonResponse
+    public function destroy(Request $request, string $id, ?string $assetId = null): JsonResponse
     {
-        $companyId = $this->resolveCompanyId($request, (string) $tenant);
-        if ($companyId === null) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tenant perusahaan tidak ditemukan.',
-            ], 404);
+        $targetId = $assetId ?? $id;
+        $tenantSlug = $assetId !== null ? $id : null;
+        $companyId = $this->resolveCompanyId($request, $tenantSlug);
+
+        $query = CompanyAsset::query();
+        if ($companyId !== null) {
+            $query->where('company_id', $companyId);
         }
 
-        $asset = CompanyAsset::where('company_id', $companyId)->findOrFail($id);
+        $asset = $query->findOrFail($targetId);
 
         if ($asset->tickets()->exists()) {
             return response()->json([
