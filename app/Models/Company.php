@@ -12,6 +12,7 @@ class Company extends Model
     /**
      * @var list<string>
      */
+    protected $table = 'companies';
     protected $fillable = [
         'name',
         'slug',
