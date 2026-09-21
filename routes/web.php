@@ -1,11 +1,15 @@
 <?php
 
-use App\Http\Controllers\Master\DepartmentWebController;
+use App\Http\Controllers\PageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-// Halaman Master Departemen (Metronic 8)
-Route::get('/departments', [DepartmentWebController::class, 'index'])->name('departments.index');
+Route::controller(PageController::class)->group(function () {
+    Route::get('/departments', 'departments')->name('departments.index');
+    Route::get('/companies', 'companies')->name('companies.index');
+    Route::get('/assets', 'assets')->name('assets.index');
+    Route::get('/sla-policies', 'slaPolicies')->name('sla-policies.index');
+});

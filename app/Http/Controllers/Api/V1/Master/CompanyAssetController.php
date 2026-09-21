@@ -2,98 +2,234 @@
 
 namespace App\Http\Controllers\Api\V1\Master;
 
-use App\Http\Controllers\Controller;
-use App\Models\CompanyAsset;
 use App\Enums\AssetCategory;
 use App\Enums\AssetStatus;
+use App\Http\Controllers\Controller;
+use App\Models\Company;
+use App\Models\CompanyAsset;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class CompanyAssetController extends Controller
 {
-    public function index(Request $request, $tenant)
+    public function index(Request $request, ?string $tenant = null): JsonResponse
     {
-        $query = CompanyAsset::where('company_id', $tenant);
+        $companyId = $this->resolveCompanyId($request, $tenant);
+        if ($companyId === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant perusahaan tidak ditemukan atau tidak valid.',
+            ], 404);
+        }
+
+        $query = CompanyAsset::where('company_id', $companyId)
+            ->with([
+                'department:id,name',
+                'assignedUser:id,name,email,job_title',
+            ])
+            ->withCount('tickets');
+
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('asset_tag', 'like', "%{$search}%")
+                    ->orWhere('serial_number', 'like', "%{$search}%");
+            });
+        }
 
         if ($request->filled('category')) {
-            $query->where('category', $request->category);
+            $query->where('category', $request->query('category'));
         }
-        
+
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->where('status', $request->query('status'));
         }
-        
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->query('department_id'));
+        }
+
         if ($request->filled('assigned_to_user_id')) {
-            $query->where('assigned_to_user_id', $request->assigned_to_user_id);
+            $query->where('assigned_to_user_id', $request->query('assigned_to_user_id'));
         }
 
-        $query->with(['department', 'assignedUser']);
+        $perPage = (int) $request->query('per_page', 10);
+        $assets = $query->orderBy('name')->paginate($perPage);
 
-        return response()->json($query->paginate(10));
+        return response()->json([
+            'success' => true,
+            'message' => 'Daftar inventaris aset berhasil diambil.',
+            'data' => $assets->items(),
+            'meta' => [
+                'current_page' => $assets->currentPage(),
+                'last_page' => $assets->lastPage(),
+                'per_page' => $assets->perPage(),
+                'total' => $assets->total(),
+            ],
+        ], 200);
     }
 
-    public function store(Request $request, $tenant)
+    public function store(Request $request, ?string $tenant = null): JsonResponse
     {
+        $companyId = $this->resolveCompanyId($request, $tenant);
+        if ($companyId === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant perusahaan tidak ditemukan atau tidak valid.',
+            ], 404);
+        }
+
         $validated = $request->validate([
-            'name'                => 'required|string|max:255',
-            'asset_tag'           => 'required|string|unique:company_assets,asset_tag',
-            'serial_number'       => 'nullable|string|max:255',
-            'category'            => ['required', Rule::enum(AssetCategory::class)],
-            'status'              => ['nullable', Rule::enum(AssetStatus::class)],
-            'department_id'       => 'nullable|exists:departments,id',
-            'assigned_to_user_id' => 'nullable|exists:users,id',
-            'notes'               => 'nullable|string',
+            'name' => 'required|string|max:150',
+            'asset_tag' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('company_assets', 'asset_tag')->where('company_id', $companyId),
+            ],
+            'serial_number' => 'nullable|string|max:100',
+            'category' => ['required', Rule::enum(AssetCategory::class)],
+            'status' => ['nullable', Rule::enum(AssetStatus::class)],
+            'department_id' => [
+                'nullable',
+                Rule::exists('departments', 'id')->where('company_id', $companyId),
+            ],
+            'assigned_to_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where('company_id', $companyId),
+            ],
+            'notes' => 'nullable|string',
         ]);
 
-        $validated['company_id'] = $tenant;
-        $validated['status'] = $validated['status'] ?? AssetStatus::IN_USE;
+        $validated['company_id'] = $companyId;
+        $validated['status'] = $validated['status'] ?? AssetStatus::InUse;
 
         $asset = CompanyAsset::create($validated);
 
         return response()->json([
-            'message' => 'Aset berhasil ditambahkan',
-            'data'    => $asset
+            'success' => true,
+            'message' => 'Aset inventaris berhasil ditambahkan.',
+            'data' => $asset->load(['department:id,name', 'assignedUser:id,name,email,job_title']),
         ], 201);
     }
 
-    public function show($tenant, $id)
+    public function show(Request $request, string|int $tenant, string|int $id): JsonResponse
     {
-        $asset = CompanyAsset::where('company_id', $tenant)
-            ->with(['company', 'department', 'assignedUser', 'tickets'])
+        $companyId = $this->resolveCompanyId($request, (string) $tenant);
+        if ($companyId === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant perusahaan tidak ditemukan.',
+            ], 404);
+        }
+
+        $asset = CompanyAsset::where('company_id', $companyId)
+            ->with(['company:id,name,slug', 'department:id,name', 'assignedUser:id,name,email,job_title'])
+            ->withCount('tickets')
             ->findOrFail($id);
-        
-        return response()->json($asset);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Detail aset berhasil diambil.',
+            'data' => $asset,
+        ], 200);
     }
 
-    public function update(Request $request, $tenant, $id)
+    public function update(Request $request, string|int $tenant, string|int $id): JsonResponse
     {
-        $asset = CompanyAsset::where('company_id', $tenant)->findOrFail($id);
+        $companyId = $this->resolveCompanyId($request, (string) $tenant);
+        if ($companyId === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant perusahaan tidak ditemukan.',
+            ], 404);
+        }
+
+        $asset = CompanyAsset::where('company_id', $companyId)->findOrFail($id);
 
         $validated = $request->validate([
-            'name'                => 'sometimes|required|string|max:255',
-            'serial_number'       => 'nullable|string|max:255',
-            'category'            => ['sometimes', 'required', Rule::enum(AssetCategory::class)],
-            'status'              => ['sometimes', 'required', Rule::enum(AssetStatus::class)],
-            'department_id'       => 'nullable|exists:departments,id',
-            'assigned_to_user_id' => 'nullable|exists:users,id',
-            'notes'               => 'nullable|string',
+            'name' => 'sometimes|required|string|max:150',
+            'asset_tag' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('company_assets', 'asset_tag')
+                    ->where('company_id', $companyId)
+                    ->ignore($asset->id),
+            ],
+            'serial_number' => 'nullable|string|max:100',
+            'category' => ['sometimes', 'required', Rule::enum(AssetCategory::class)],
+            'status' => ['sometimes', 'required', Rule::enum(AssetStatus::class)],
+            'department_id' => [
+                'nullable',
+                Rule::exists('departments', 'id')->where('company_id', $companyId),
+            ],
+            'assigned_to_user_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where('company_id', $companyId),
+            ],
+            'notes' => 'nullable|string',
         ]);
 
         $asset->update($validated);
 
         return response()->json([
-            'message' => 'Data aset berhasil diperbarui',
-            'data'    => $asset
-        ]);
+            'success' => true,
+            'message' => 'Data aset inventaris berhasil diperbarui.',
+            'data' => $asset->load(['department:id,name', 'assignedUser:id,name,email,job_title']),
+        ], 200);
     }
 
-    public function destroy($tenant, $id)
+    public function destroy(Request $request, string|int $tenant, string|int $id): JsonResponse
     {
-        $asset = CompanyAsset::where('company_id', $tenant)->findOrFail($id);
+        $companyId = $this->resolveCompanyId($request, (string) $tenant);
+        if ($companyId === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tenant perusahaan tidak ditemukan.',
+            ], 404);
+        }
+
+        $asset = CompanyAsset::where('company_id', $companyId)->findOrFail($id);
+
+        if ($asset->tickets()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aset tidak dapat dihapus karena masih terhubung ke riwayat tiket. Ubah status aset menjadi "retired" sebagai gantinya.',
+            ], 422);
+        }
+
         $asset->delete();
 
         return response()->json([
-            'message' => 'Aset berhasil dihapus dari inventaris'
-        ]);
+            'success' => true,
+            'message' => 'Aset berhasil dihapus dari inventaris.',
+        ], 200);
+    }
+
+    protected function resolveCompanyId(Request $request, ?string $tenant = null): ?int
+    {
+        if ($tenant !== null && $tenant !== '') {
+            $company = Company::where('slug', $tenant)
+                ->orWhere('id', $tenant)
+                ->first();
+
+            if ($company !== null) {
+                return (int) $company->id;
+            }
+        }
+
+        if ($request->filled('company_id')) {
+            return (int) $request->input('company_id');
+        }
+
+        if ($request->user() !== null && $request->user()->company_id !== null) {
+            return (int) $request->user()->company_id;
+        }
+
+        return null;
     }
 }
