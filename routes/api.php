@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Master\DepartmentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController; 
+use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -34,4 +35,13 @@ Route::prefix('v1')->group(function () {
     Route::get('/superadmin/companies/{id}', [CompanyController::class, 'show']);
     Route::put('/superadmin/companies/{id}', [CompanyController::class, 'update']);
     Route::delete('/superadmin/companies/{id}', [CompanyController::class, 'destroy']);
+
+    // ##############################
+    // ## master data company assets ###
+    // ##############################
+    Route::get('/assets', [CompanyAssetController::class, 'index']);
+    Route::post('/assets', [CompanyAssetController::class, 'store']);
+    Route::get('/assets/{id}', [CompanyAssetController::class, 'show']);
+    Route::put('/assets/{id}', [CompanyAssetController::class, 'update']);
+    Route::delete('/assets/{id}', [CompanyAssetController::class, 'destroy']);
 });
