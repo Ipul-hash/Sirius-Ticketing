@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1\Master;
 
 use App\Http\Controllers\Controller;
 use App\Models\CompanyAsset;
+use App\Enums\AssetCategory;
+use App\Enums\AssetStatus;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -11,7 +13,7 @@ class CompanyAssetController extends Controller
 {
     public function index(Request $request, $tenant)
     {
-        $query = CompanyAsset::query();
+        $query = CompanyAsset::where('company_id', $tenant);
 
         if ($request->filled('category')) {
             $query->where('category', $request->category);
@@ -25,7 +27,7 @@ class CompanyAssetController extends Controller
             $query->where('assigned_to_user_id', $request->assigned_to_user_id);
         }
 
-        $query->with(['department', 'user']);
+        $query->with(['department', 'assignedUser']);
 
         return response()->json($query->paginate(10));
     }
@@ -33,15 +35,18 @@ class CompanyAssetController extends Controller
     public function store(Request $request, $tenant)
     {
         $validated = $request->validate([
+            'name'                => 'required|string|max:255',
             'asset_tag'           => 'required|string|unique:company_assets,asset_tag',
             'serial_number'       => 'nullable|string|max:255',
-            'specifications'      => 'nullable|string',
-            'category'            => 'required|string',
+            'category'            => ['required', Rule::enum(AssetCategory::class)],
+            'status'              => ['nullable', Rule::enum(AssetStatus::class)],
             'department_id'       => 'nullable|exists:departments,id',
             'assigned_to_user_id' => 'nullable|exists:users,id',
+            'notes'               => 'nullable|string',
         ]);
 
-        $validated['status'] = 'in_use'; 
+        $validated['company_id'] = $tenant;
+        $validated['status'] = $validated['status'] ?? AssetStatus::IN_USE;
 
         $asset = CompanyAsset::create($validated);
 
@@ -53,30 +58,38 @@ class CompanyAssetController extends Controller
 
     public function show($tenant, $id)
     {
-        $asset = CompanyAsset::with(['company', 'department', 'user', 'tickets'])->findOrFail($id);
+        $asset = CompanyAsset::where('company_id', $tenant)
+            ->with(['company', 'department', 'assignedUser', 'tickets'])
+            ->findOrFail($id);
         
         return response()->json($asset);
     }
 
     public function update(Request $request, $tenant, $id)
     {
-        $asset = CompanyAsset::findOrFail($id);
+        $asset = CompanyAsset::where('company_id', $tenant)->findOrFail($id);
 
         $validated = $request->validate([
-            'status' => ['required', Rule::in(['in_use', 'maintenance', 'retired'])],
+            'name'                => 'sometimes|required|string|max:255',
+            'serial_number'       => 'nullable|string|max:255',
+            'category'            => ['sometimes', 'required', Rule::enum(AssetCategory::class)],
+            'status'              => ['sometimes', 'required', Rule::enum(AssetStatus::class)],
+            'department_id'       => 'nullable|exists:departments,id',
+            'assigned_to_user_id' => 'nullable|exists:users,id',
+            'notes'               => 'nullable|string',
         ]);
 
-        $asset->update(['status' => $validated['status']]);
+        $asset->update($validated);
 
         return response()->json([
-            'message' => 'Status aset berhasil diperbarui',
+            'message' => 'Data aset berhasil diperbarui',
             'data'    => $asset
         ]);
     }
 
     public function destroy($tenant, $id)
     {
-        $asset = CompanyAsset::findOrFail($id);
+        $asset = CompanyAsset::where('company_id', $tenant)->findOrFail($id);
         $asset->delete();
 
         return response()->json([
