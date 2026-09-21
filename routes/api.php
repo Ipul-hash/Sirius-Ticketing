@@ -39,9 +39,8 @@ Route::prefix('v1')->group(function () {
     // ##############################
     // ## master data company assets ###
     // ##############################
-    Route::get('/assets', [CompanyAssetController::class, 'index']);
-    Route::post('/assets', [CompanyAssetController::class, 'store']);
-    Route::get('/assets/{id}', [CompanyAssetController::class, 'show']);
-    Route::put('/assets/{id}', [CompanyAssetController::class, 'update']);
-    Route::delete('/assets/{id}', [CompanyAssetController::class, 'destroy']);
-});
+    Route::get('/{tenant}/assets', [CompanyAssetController::class, 'index']);
+    Route::post('/{tenant}/assets', [CompanyAssetController::class, 'store']);
+    Route::get('/{tenant}/assets/{id}', [CompanyAssetController::class, 'show']);
+    Route::put('/{tenant}/assets/{id}', [CompanyAssetController::class, 'update']);
+    Route::delete('/{tenant}/assets/{id}', [CompanyAssetController::class, 'destroy']);});
