@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController; 
 use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
+use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -51,4 +52,13 @@ Route::prefix('v1')->group(function () {
     // ##############################
     Route::get('/{tenant}/sla-policies', [SlaPolicyController::class, 'index']);
     Route::put('/{tenant}/sla-policies/{priority}', [SlaPolicyController::class, 'update']);
+    
+    // ##############################
+    // ## master data ticket categories ###
+    // ##############################
+    Route::get('/{tenant}/categories', [TicketCategoryController::class, 'index']);
+    Route::post('/{tenant}/categories', [TicketCategoryController::class, 'store']);
+    Route::get('/{tenant}/categories/{id}', [TicketCategoryController::class, 'show']);
+    Route::put('/{tenant}/categories/{id}', [TicketCategoryController::class, 'update']);
+    Route::delete('/{tenant}/categories/{id}', [TicketCategoryController::class, 'destroy']);
 });
