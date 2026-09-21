@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController; 
 use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
+use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -43,4 +44,11 @@ Route::prefix('v1')->group(function () {
     Route::post('/{tenant}/assets', [CompanyAssetController::class, 'store']);
     Route::get('/{tenant}/assets/{id}', [CompanyAssetController::class, 'show']);
     Route::put('/{tenant}/assets/{id}', [CompanyAssetController::class, 'update']);
-    Route::delete('/{tenant}/assets/{id}', [CompanyAssetController::class, 'destroy']);});
+    Route::delete('/{tenant}/assets/{id}', [CompanyAssetController::class, 'destroy']);
+
+    // ##############################
+    // ## master data SLA policies ###
+    // ##############################
+    Route::get('/{tenant}/sla-policies', [SlaPolicyController::class, 'index']);
+    Route::put('/{tenant}/sla-policies/{priority}', [SlaPolicyController::class, 'update']);
+});
