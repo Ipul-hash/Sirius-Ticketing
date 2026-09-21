@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
 use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
+use App\Http\Controllers\Api\V1\Master\CannedResponseController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -61,4 +62,13 @@ Route::prefix('v1')->group(function () {
     Route::get('/{tenant}/categories/{id}', [TicketCategoryController::class, 'show']);
     Route::put('/{tenant}/categories/{id}', [TicketCategoryController::class, 'update']);
     Route::delete('/{tenant}/categories/{id}', [TicketCategoryController::class, 'destroy']);
+
+    // ##############################
+    // ## master data canned responses ###
+    // ##############################
+    Route::get('/{tenant}/canned-responses', [CannedResponseController::class, 'index']);
+    Route::post('/{tenant}/canned-responses', [CannedResponseController::class, 'store']);
+    Route::get('/{tenant}/canned-responses/{id}', [CannedResponseController::class, 'show']);
+    Route::put('/{tenant}/canned-responses/{id}', [CannedResponseController::class, 'update']);
+    Route::delete('/{tenant}/canned-responses/{id}', [CannedResponseController::class, 'destroy']);
 });
