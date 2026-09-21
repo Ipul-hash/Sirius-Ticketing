@@ -51,9 +51,12 @@ class SlaPolicyController extends Controller
         ], 200);
     }
 
-    public function update(Request $request, string $tenant, string $priority): JsonResponse
+    public function update(Request $request, string $param1, ?string $param2 = null): JsonResponse
     {
-        $companyId = $this->resolveCompanyId($request, $tenant);
+        $priority = $param2 ?? $param1;
+        $tenantSlug = $param2 !== null ? $param1 : null;
+        $companyId = $this->resolveCompanyId($request, $tenantSlug);
+
         if ($companyId === null) {
             return response()->json([
                 'success' => false,
