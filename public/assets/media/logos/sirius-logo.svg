@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 42" width="130" height="42">
+  <defs>
+    <linearGradient id="siriusBgFull" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="siriusSFull" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="siriusGlowFull" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <filter id="shadowFull" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#3B82F6" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- S Emblem -->
+  <g transform="translate(1, 1)">
+    <rect x="0" y="0" width="40" height="40" rx="10" fill="url(#siriusBgFull)" stroke="#38BDF8" stroke-width="1.2" stroke-opacity="0.3"/>
+    <path d="M 28 12 C 28 12, 25 9.5, 20 9.5 C 14 9.5, 11 13, 11 16.5 C 11 23, 29 19, 29 26.5 C 29 31.5, 24.5 32.5, 20 32.5 C 14 32.5, 10.5 29, 10.5 29" 
+          fill="none" 
+          stroke="url(#siriusSFull)" 
+          stroke-width="4.2" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"
+          filter="url(#shadowFull)"/>
+    <polygon points="32,6 33.2,9 36,10 33.2,11 32,14 30.8,11 28,10 30.8,9" fill="url(#siriusGlowFull)"/>
+  </g>
+
+  <!-- Wordmark Text: Sirius (Tanpa titik, tanpa badge helpdesk) -->
+  <text x="48" y="28" font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" font-size="22" font-weight="800" letter-spacing="0.5" fill="#FFFFFF">Sirius</text>
+</svg>
