@@ -1,14 +1,11 @@
 <?php
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
 use App\Http\Controllers\Api\V1\Master\DepartmentController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\Superadmin\CompanyController; 
-use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
-use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
 use App\Http\Controllers\Api\V1\Master\CannedResponseController;
 
