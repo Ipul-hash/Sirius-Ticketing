@@ -121,11 +121,12 @@
                 </div>
 
                 <div class="menu-item">
-                    <a class="menu-link {{ request()->is('tickets*') ? 'active' : '' }}" href="#!">
+                    <a class="menu-link {{ request()->is('tickets*') ? 'active' : '' }}" href="{{ url('/tickets') }}">
                         <span class="menu-icon">
                             <i class="ki-duotone ki-tablet-text-down fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
                         </span>
                         <span class="menu-title">Semua Tiket</span>
+                        <span class="badge badge-light-primary fs-8 fw-bold ms-auto">Antrean</span>
                     </a>
                 </div>
 

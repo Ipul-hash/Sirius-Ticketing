@@ -6,11 +6,14 @@ use App\Enums\AssetStatus;
 use App\Enums\CompanyPlan;
 use App\Enums\CompanyStatus;
 use App\Enums\TicketPriority;
+use App\Enums\TicketStatus;
+use App\Enums\UserRole;
 use App\Models\CannedResponse;
 use App\Models\Company;
 use App\Models\CompanyAsset;
 use App\Models\Department;
 use App\Models\SlaPolicy;
+use App\Models\Ticket;
 use App\Models\TicketCategory;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -364,5 +367,194 @@ class PageController extends Controller
         ];
 
         return view('master.canned_responses.index', compact('responses', 'companies', 'departments', 'stats'));
+    }
+
+    /**
+     * Menampilkan Halaman Antrean Tiket Helpdesk (Metronic 8).
+     */
+    public function tickets(Request $request): View
+    {
+        $companies = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+
+        $departments = Department::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'company_id']);
+
+        $categories = TicketCategory::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'company_id', 'department_id', 'default_priority', 'requires_approval']);
+
+        $users = User::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'role', 'company_id', 'job_title']);
+
+        $assets = CompanyAsset::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'asset_tag', 'company_id', 'department_id']);
+
+        $query = Ticket::query()
+            ->with([
+                'company:id,name,slug',
+                'category:id,name,requires_approval',
+                'department:id,name',
+                'requester:id,name,email,avatar_path',
+                'assignedAgent:id,name,email,job_title,avatar_path',
+                'asset:id,name,asset_tag,category',
+            ]);
+
+        // Filter Tab Antrean
+        $activeTab = $request->query('tab', 'all');
+        if ($activeTab === 'unassigned') {
+            $query->whereNull('assigned_to')
+                ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed]);
+        } elseif ($activeTab === 'my_tickets') {
+            $currentUserId = $request->user()?->id ?? $request->query('user_id');
+            if ($currentUserId) {
+                $query->where('assigned_to', $currentUserId);
+            }
+        } elseif ($activeTab === 'pending') {
+            $query->whereIn('status', [TicketStatus::PendingApproval, TicketStatus::PendingUser]);
+        } elseif ($activeTab === 'overdue') {
+            $query->where(function ($q) {
+                $q->where('is_sla_breached', true)
+                    ->orWhere(function ($sub) {
+                        $sub->whereNull('resolved_at')
+                            ->where('resolution_due_at', '<', now());
+                    });
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('ticket_number', 'like', "%{$search}%")
+                    ->orWhere('subject', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('assigned_to')) {
+            if ($request->assigned_to === 'unassigned') {
+                $query->whereNull('assigned_to');
+            } else {
+                $query->where('assigned_to', $request->assigned_to);
+            }
+        }
+
+        $tickets = $query->orderByDesc('created_at')->paginate(10)->withQueryString();
+
+        // 4 Metric Summary Cards
+        $totalOpen = Ticket::whereIn('status', [TicketStatus::Open, TicketStatus::InProgress])->count();
+        $totalUnassigned = Ticket::whereNull('assigned_to')->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])->count();
+        $totalPending = Ticket::whereIn('status', [TicketStatus::PendingApproval, TicketStatus::PendingUser])->count();
+        $totalOverdue = Ticket::where('is_sla_breached', true)
+            ->orWhere(function ($sub) {
+                $sub->whereNull('resolved_at')->where('resolution_due_at', '<', now());
+            })->count();
+
+        $stats = [
+            'total_open' => $totalOpen,
+            'total_unassigned' => $totalUnassigned,
+            'total_pending' => $totalPending,
+            'total_overdue' => $totalOverdue,
+            'total_all' => Ticket::count(),
+        ];
+
+        // Sebaran Prioritas Tiket Aktif
+        $urgentCount = Ticket::where('priority', TicketPriority::Urgent)
+            ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
+            ->count();
+        $highCount = Ticket::where('priority', TicketPriority::High)
+            ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
+            ->count();
+        $mediumCount = Ticket::where('priority', TicketPriority::Medium)
+            ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
+            ->count();
+        $lowCount = Ticket::where('priority', TicketPriority::Low)
+            ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
+            ->count();
+
+        // Tingkat Kepatuhan SLA Tiket Aktif
+        $activeTicketsCount = Ticket::whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])->count();
+        $onTrackCount = max(0, $activeTicketsCount - $totalOverdue);
+        $slaComplianceRate = $activeTicketsCount > 0 ? (int) round(($onTrackCount / $activeTicketsCount) * 100) : 100;
+
+        // Spotlight Tiket Kritis / Overdue Terlama yang Butuh Penanganan
+        $criticalTicket = Ticket::query()
+            ->with(['company:id,name,slug', 'category:id,name', 'requester:id,name,avatar_path', 'assignedAgent:id,name,avatar_path'])
+            ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
+            ->where(function ($q) {
+                $q->where('is_sla_breached', true)
+                    ->orWhere('priority', TicketPriority::Urgent)
+                    ->orWhere(function ($sub) {
+                        $sub->whereNull('resolved_at')->where('resolution_due_at', '<', now());
+                    });
+            })
+            ->orderBy('created_at', 'asc')
+            ->first();
+
+        // Beban Kerja Agen / Teknisi Aktif
+        $agentWorkloads = User::query()
+            ->where('is_active', true)
+            ->whereIn('role', [UserRole::Agent, UserRole::CompanyAdmin, UserRole::Superadmin])
+            ->withCount(['assignedTickets' => function ($q) {
+                $q->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed]);
+            }])
+            ->orderByDesc('assigned_tickets_count')
+            ->limit(3)
+            ->get(['id', 'name', 'job_title', 'avatar_path', 'role']);
+
+        $dashboardMetrics = [
+            'urgent_count' => $urgentCount,
+            'high_count' => $highCount,
+            'medium_count' => $mediumCount,
+            'low_count' => $lowCount,
+            'sla_compliance_rate' => $slaComplianceRate,
+            'active_tickets_count' => $activeTicketsCount,
+            'critical_ticket' => $criticalTicket,
+            'agent_workloads' => $agentWorkloads,
+        ];
+
+        $priorities = TicketPriority::cases();
+        $statuses = TicketStatus::cases();
+
+        return view('tickets.index', compact(
+            'tickets',
+            'companies',
+            'departments',
+            'categories',
+            'users',
+            'assets',
+            'stats',
+            'dashboardMetrics',
+            'priorities',
+            'statuses',
+            'activeTab'
+        ));
     }
 }

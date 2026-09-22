@@ -15,4 +15,5 @@ Route::controller(PageController::class)->group(function () {
     Route::get('/sla-policies', 'slaPolicies')->name('sla-policies.index');
     Route::get('/categories', 'ticketCategories')->name('categories.index');
     Route::get('/canned-responses', 'cannedResponses')->name('canned-responses.index');
+    Route::get('/tickets', 'tickets')->name('tickets.index');
 });

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Master\DepartmentController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
+use App\Http\Controllers\Api\V1\Ticket\TicketController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -93,4 +94,23 @@ Route::prefix('v1')->group(function () {
     Route::get('/{tenant}/canned-responses/{id}', [CannedResponseController::class, 'show']);
     Route::put('/{tenant}/canned-responses/{id}', [CannedResponseController::class, 'update']);
     Route::delete('/{tenant}/canned-responses/{id}', [CannedResponseController::class, 'destroy']);
+
+    // ##############################
+    // ## Transaksional & Operasional Tiket
+    // ##############################
+    Route::get('/tickets', [TicketController::class, 'index']);
+    Route::post('/tickets', [TicketController::class, 'store']);
+    Route::get('/tickets/{id}', [TicketController::class, 'show']);
+    Route::put('/tickets/{id}', [TicketController::class, 'update']);
+    Route::patch('/tickets/{id}/status', [TicketController::class, 'updateStatus']);
+    Route::patch('/tickets/{id}/assign', [TicketController::class, 'assign']);
+    Route::delete('/tickets/{id}', [TicketController::class, 'destroy']);
+
+    Route::get('/{tenant}/tickets', [TicketController::class, 'index']);
+    Route::post('/{tenant}/tickets', [TicketController::class, 'store']);
+    Route::get('/{tenant}/tickets/{id}', [TicketController::class, 'show']);
+    Route::put('/{tenant}/tickets/{id}', [TicketController::class, 'update']);
+    Route::patch('/{tenant}/tickets/{id}/status', [TicketController::class, 'updateStatus']);
+    Route::patch('/{tenant}/tickets/{id}/assign', [TicketController::class, 'assign']);
+    Route::delete('/{tenant}/tickets/{id}', [TicketController::class, 'destroy']);
 });
