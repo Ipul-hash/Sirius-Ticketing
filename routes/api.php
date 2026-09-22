@@ -1,13 +1,13 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\Master\CannedResponseController;
 use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
 use App\Http\Controllers\Api\V1\Master\DepartmentController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
-use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
 use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
-use App\Http\Controllers\Api\V1\Master\CannedResponseController;
+use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -63,10 +63,16 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/{tenant}/sla-policies', [SlaPolicyController::class, 'index']);
     Route::put('/{tenant}/sla-policies/{priority}', [SlaPolicyController::class, 'update']);
-    
+
     // ##############################
-    // ## master data ticket categories ###
+    // ## Master Data Ticket Categories ###
     // ##############################
+    Route::get('/categories', [TicketCategoryController::class, 'index']);
+    Route::post('/categories', [TicketCategoryController::class, 'store']);
+    Route::get('/categories/{id}', [TicketCategoryController::class, 'show']);
+    Route::put('/categories/{id}', [TicketCategoryController::class, 'update']);
+    Route::delete('/categories/{id}', [TicketCategoryController::class, 'destroy']);
+
     Route::get('/{tenant}/categories', [TicketCategoryController::class, 'index']);
     Route::post('/{tenant}/categories', [TicketCategoryController::class, 'store']);
     Route::get('/{tenant}/categories/{id}', [TicketCategoryController::class, 'show']);
@@ -74,8 +80,14 @@ Route::prefix('v1')->group(function () {
     Route::delete('/{tenant}/categories/{id}', [TicketCategoryController::class, 'destroy']);
 
     // ##############################
-    // ## master data canned responses ###
+    // ## Master Data Canned Responses ###
     // ##############################
+    Route::get('/canned-responses', [CannedResponseController::class, 'index']);
+    Route::post('/canned-responses', [CannedResponseController::class, 'store']);
+    Route::get('/canned-responses/{id}', [CannedResponseController::class, 'show']);
+    Route::put('/canned-responses/{id}', [CannedResponseController::class, 'update']);
+    Route::delete('/canned-responses/{id}', [CannedResponseController::class, 'destroy']);
+
     Route::get('/{tenant}/canned-responses', [CannedResponseController::class, 'index']);
     Route::post('/{tenant}/canned-responses', [CannedResponseController::class, 'store']);
     Route::get('/{tenant}/canned-responses/{id}', [CannedResponseController::class, 'show']);

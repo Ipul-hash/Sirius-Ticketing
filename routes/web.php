@@ -13,4 +13,6 @@ Route::controller(PageController::class)->group(function () {
     Route::get('/company-assets', 'assets')->name('assets.index');
     Route::get('/inventaris', 'assets');
     Route::get('/sla-policies', 'slaPolicies')->name('sla-policies.index');
+    Route::get('/categories', 'ticketCategories')->name('categories.index');
+    Route::get('/canned-responses', 'cannedResponses')->name('canned-responses.index');
 });

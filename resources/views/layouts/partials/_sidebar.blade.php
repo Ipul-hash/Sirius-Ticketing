@@ -61,11 +61,12 @@
 
                 <!-- Master Kategori Tiket -->
                 <div class="menu-item">
-                    <a class="menu-link {{ request()->is('categories*') ? 'active' : '' }}" href="#!">
+                    <a class="menu-link {{ request()->is('categories*') ? 'active' : '' }}" href="{{ url('/categories') }}">
                         <span class="menu-icon">
                             <i class="ki-duotone ki-category fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
                         </span>
                         <span class="menu-title">Kategori Tiket</span>
+                        <span class="badge badge-light-primary fs-8 fw-bold ms-auto">Klasifikasi</span>
                     </a>
                 </div>
 
@@ -93,11 +94,12 @@
 
                 <!-- Master Canned Responses -->
                 <div class="menu-item">
-                    <a class="menu-link {{ request()->is('canned*') ? 'active' : '' }}" href="#!">
+                    <a class="menu-link {{ request()->is('canned*') ? 'active' : '' }}" href="{{ url('/canned-responses') }}">
                         <span class="menu-icon">
                             <i class="ki-duotone ki-message-text-2 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                         </span>
                         <span class="menu-title">Canned Responses</span>
+                        <span class="badge badge-light-success fs-8 fw-bold ms-auto">Balasan Cepat</span>
                     </a>
                 </div>
 

@@ -6,10 +6,12 @@ use App\Enums\AssetStatus;
 use App\Enums\CompanyPlan;
 use App\Enums\CompanyStatus;
 use App\Enums\TicketPriority;
+use App\Models\CannedResponse;
 use App\Models\Company;
 use App\Models\CompanyAsset;
 use App\Models\Department;
 use App\Models\SlaPolicy;
+use App\Models\TicketCategory;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -236,5 +238,131 @@ class PageController extends Controller
             'slaMedium',
             'slaLow'
         ));
+    }
+
+    /**
+     * Menampilkan Halaman Master Kategori Tiket.
+     */
+    public function ticketCategories(Request $request): View
+    {
+        $companies = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+
+        $departments = Department::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'company_id']);
+
+        $query = TicketCategory::query()
+            ->with([
+                'company:id,name,slug',
+                'department:id,name,is_active',
+            ])
+            ->withCount('tickets');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+
+        if ($request->filled('default_priority')) {
+            $query->where('default_priority', $request->default_priority);
+        }
+
+        if ($request->has('requires_approval') && $request->requires_approval !== '') {
+            $query->where('requires_approval', $request->requires_approval === '1');
+        }
+
+        if ($request->has('status') && $request->status !== '') {
+            $query->where('is_active', $request->status === '1');
+        }
+
+        $categories = $query->orderBy('name')->paginate(10)->withQueryString();
+
+        $totalCategories = TicketCategory::count();
+        $activeCategories = TicketCategory::where('is_active', true)->count();
+        $approvalCategories = TicketCategory::where('requires_approval', true)->count();
+        $totalTicketsLinked = TicketCategory::withCount('tickets')->get()->sum('tickets_count');
+
+        $stats = [
+            'total_categories' => $totalCategories,
+            'active_categories' => $activeCategories,
+            'approval_categories' => $approvalCategories,
+            'total_tickets_linked' => $totalTicketsLinked,
+        ];
+
+        $priorities = TicketPriority::cases();
+
+        return view('master.categories.index', compact('categories', 'companies', 'departments', 'stats', 'priorities'));
+    }
+
+    /**
+     * Menampilkan Halaman Master Canned Responses / Balasan Cepat.
+     */
+    public function cannedResponses(Request $request): View
+    {
+        $companies = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+
+        $departments = Department::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'company_id']);
+
+        $query = CannedResponse::query()
+            ->with([
+                'company:id,name,slug',
+                'department:id,name',
+            ]);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('shortcut', 'like', "%{$search}%")
+                    ->orWhere('title', 'like', "%{$search}%")
+                    ->orWhere('message', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+
+        if ($request->filled('department_id')) {
+            $deptId = $request->department_id;
+            if ($deptId === 'global') {
+                $query->whereNull('department_id');
+            } else {
+                $query->where('department_id', $deptId);
+            }
+        }
+
+        $responses = $query->orderBy('title')->paginate(10)->withQueryString();
+
+        $totalResponses = CannedResponse::count();
+        $globalResponses = CannedResponse::whereNull('department_id')->count();
+        $deptSpecificResponses = CannedResponse::whereNotNull('department_id')->count();
+        $totalCompaniesWithResponses = CannedResponse::distinct('company_id')->count('company_id');
+
+        $stats = [
+            'total_responses' => $totalResponses,
+            'global_responses' => $globalResponses,
+            'dept_specific_responses' => $deptSpecificResponses,
+            'total_companies_with_responses' => $totalCompaniesWithResponses,
+        ];
+
+        return view('master.canned_responses.index', compact('responses', 'companies', 'departments', 'stats'));
     }
 }
