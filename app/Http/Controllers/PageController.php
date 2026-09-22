@@ -692,10 +692,14 @@ class PageController extends Controller
                         ->orderBy('created_at', 'asc');
                 },
                 'activities' => function ($q) {
-                    $q->with('user:id,name,role')->orderBy('created_at', 'desc');
+                    $q->with('user:id,name,role,job_title,avatar_path')->orderBy('created_at', 'desc');
                 },
                 'approvals' => function ($q) {
                     $q->with('approver:id,name,email,role,job_title')->latest();
+                },
+                'mergedInto:id,ticket_number,subject,status,priority',
+                'mergedTickets' => function ($q) {
+                    $q->with('requester:id,name,email')->orderBy('created_at', 'desc');
                 },
             ])
             ->where('id', $id)

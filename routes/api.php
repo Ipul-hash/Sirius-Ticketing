@@ -6,8 +6,11 @@ use App\Http\Controllers\Api\V1\Master\DepartmentController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
+use App\Http\Controllers\Api\V1\Ticket\TicketActivityController;
 use App\Http\Controllers\Api\V1\Ticket\TicketApprovalController;
+use App\Http\Controllers\Api\V1\Ticket\TicketCollisionController;
 use App\Http\Controllers\Api\V1\Ticket\TicketController;
+use App\Http\Controllers\Api\V1\Ticket\TicketMergeController;
 use App\Http\Controllers\Api\V1\Ticket\TicketMessageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -118,6 +121,18 @@ Route::prefix('v1')->group(function () {
     Route::post('/tickets/{ticketId}/approve', [TicketApprovalController::class, 'approve']);
     Route::post('/tickets/{ticketId}/reject', [TicketApprovalController::class, 'reject']);
 
+    // Jejak Audit & Timeline Aktivitas Tiket (Ticket Activities)
+    Route::get('/tickets/{ticketId}/activities', [TicketActivityController::class, 'index']);
+
+    // Deteksi Kehadiran & Anti-Tabrakan Teknisi (Ticket Collisions)
+    Route::post('/tickets/{ticketId}/collisions/ping', [TicketCollisionController::class, 'ping']);
+    Route::get('/tickets/{ticketId}/collisions', [TicketCollisionController::class, 'active']);
+    Route::post('/tickets/{ticketId}/collisions/leave', [TicketCollisionController::class, 'leave']);
+
+    // Penggabungan Tiket Duplikat (Ticket Merging)
+    Route::get('/tickets/{ticketId}/merge-candidates', [TicketMergeController::class, 'candidates']);
+    Route::post('/tickets/{ticketId}/merge', [TicketMergeController::class, 'merge']);
+
     Route::get('/{tenant}/tickets', [TicketController::class, 'index']);
     Route::post('/{tenant}/tickets', [TicketController::class, 'store']);
     Route::get('/{tenant}/tickets/{id}', [TicketController::class, 'show']);
@@ -132,4 +147,13 @@ Route::prefix('v1')->group(function () {
     Route::get('/{tenant}/approvals/pending', [TicketApprovalController::class, 'indexPending']);
     Route::post('/{tenant}/tickets/{ticketId}/approve', [TicketApprovalController::class, 'approve']);
     Route::post('/{tenant}/tickets/{ticketId}/reject', [TicketApprovalController::class, 'reject']);
+
+    Route::get('/{tenant}/tickets/{ticketId}/activities', [TicketActivityController::class, 'index']);
+
+    Route::post('/{tenant}/tickets/{ticketId}/collisions/ping', [TicketCollisionController::class, 'ping']);
+    Route::get('/{tenant}/tickets/{ticketId}/collisions', [TicketCollisionController::class, 'active']);
+    Route::post('/{tenant}/tickets/{ticketId}/collisions/leave', [TicketCollisionController::class, 'leave']);
+
+    Route::get('/{tenant}/tickets/{ticketId}/merge-candidates', [TicketMergeController::class, 'candidates']);
+    Route::post('/{tenant}/tickets/{ticketId}/merge', [TicketMergeController::class, 'merge']);
 });

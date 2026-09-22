@@ -10,6 +10,14 @@
             Kembali ke Antrean
         </a>
 
+        @if(!$ticket->is_merged)
+            <!-- Tombol Gabungkan Tiket (Ticket Merging) -->
+            <button type="button" class="btn btn-sm btn-light-primary rounded-3 shadow-xs" data-bs-toggle="modal" data-bs-target="#kt_modal_merge_ticket">
+                <i class="ki-duotone ki-switch fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+                Gabungkan Tiket
+            </button>
+        @endif
+
         <!-- Tombol Cepat Tugaskan -->
         <button type="button" class="btn btn-sm btn-light-warning rounded-3 shadow-xs btn-quick-assign"
                 data-id="{{ $ticket->id }}"
@@ -39,6 +47,59 @@
     <!-- =================================================================== -->
     <div class="col-xl-8 col-lg-7">
         <div class="d-flex flex-column gap-5">
+            <!-- 0. AGENT COLLISION ALERT (REALTIME PRESENCE) -->
+            <div id="agent_collision_banner" class="alert alert-dismissible bg-light-warning border border-warning border-dashed d-none flex-column flex-sm-row align-items-center p-4 rounded-4 shadow-xs">
+                <div class="d-flex align-items-center me-sm-4 mb-2 mb-sm-0">
+                    <div class="position-relative me-3">
+                        <span class="bullet bullet-dot bg-warning h-10px w-10px position-absolute top-0 start-100 translate-middle animation-blink"></span>
+                        <div class="symbol symbol-35px symbol-circle">
+                            <div class="symbol-label bg-warning text-white">
+                                <i class="ki-duotone ki-eye fs-3 text-white"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bolder text-gray-900 fs-7">Peringatan Kehadiran Teknisi (Agent Collision)</span>
+                            <span class="badge badge-warning text-white fs-9 py-0 px-2">Live</span>
+                        </div>
+                        <span class="text-gray-700 fs-8 mt-1" id="agent_collision_text">
+                            Ada teknisi lain yang sedang membuka tiket ini.
+                        </span>
+                    </div>
+                </div>
+                <div class="symbol-group symbol-hover ms-sm-auto" id="agent_collision_avatars"></div>
+            </div>
+
+            @if($ticket->is_merged && $ticket->mergedInto)
+                <!-- BANNER PERINGATAN TIKET TELAH DIGABUNGKAN (MERGED TICKET BANNER) -->
+                <div class="alert alert-dismissible bg-light-info border border-info border-dashed d-flex flex-column flex-sm-row align-items-center p-5 rounded-4 shadow-xs">
+                    <div class="d-flex align-items-center me-sm-4 mb-2 mb-sm-0 flex-grow-1">
+                        <div class="symbol symbol-40px symbol-circle bg-info me-3">
+                            <i class="ki-duotone ki-switch fs-2 text-white"><span class="path1"></span><span class="path2"></span></i>
+                        </div>
+                        <div class="d-flex flex-column">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bolder text-gray-900 fs-7">Tiket Ini Telah Digabungkan (Merged Ticket)</span>
+                                <span class="badge badge-info text-white fs-9 py-0 px-2">Closed</span>
+                            </div>
+                            <span class="text-gray-700 fs-8 mt-1">
+                                Tiket ini telah ditutup karena merupakan duplikat dan digabungkan ke tiket utama:
+                                <a href="{{ url('/tickets/' . $ticket->mergedInto->id) }}" class="fw-bolder text-primary text-decoration-underline">
+                                    #{{ $ticket->mergedInto->ticket_number }} - {{ $ticket->mergedInto->subject }}
+                                </a>.
+                            </span>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center flex-shrink-0">
+                        <a href="{{ url('/tickets/' . $ticket->mergedInto->id) }}" class="btn btn-sm btn-primary rounded-3 px-4 shadow-sm fs-8">
+                            <i class="ki-duotone ki-arrow-right fs-5 me-1"><span class="path1"></span><span class="path2"></span></i>
+                            Buka Tiket Utama
+                        </a>
+                    </div>
+                </div>
+            @endif
+
             <!-- 1. KARTU RINGKASAN MASALAH / TIKET AWAL -->
             <div class="card card-flush bg-body shadow-sm rounded-4 border-0">
                 <div class="card-header pt-6 px-6 pb-2 border-0">
@@ -188,14 +249,56 @@
                 </div>
             @endif
 
-            <!-- 2. THREAD PERCAKAPAN (MESSAGES TIMELINE) -->
-            <div class="d-flex align-items-center justify-content-between mt-2">
-                <h4 class="fs-6 fw-bold text-gray-800 mb-0">
-                    <i class="ki-duotone ki-messages fs-4 text-primary me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
-                    Thread Percakapan ({{ $ticket->messages->count() }})
-                </h4>
-                <span class="fs-8 text-muted">Diurutkan berdasarkan waktu</span>
+            <style>
+                #ticketDetailTabs .nav-link {
+                    border-top: 0 !important;
+                    border-left: 0 !important;
+                    border-right: 0 !important;
+                    outline: none !important;
+                    box-shadow: none !important;
+                }
+                #ticketDetailTabs .nav-link:focus,
+                #ticketDetailTabs .nav-link:active,
+                #ticketDetailTabs .nav-link:focus-visible {
+                    outline: none !important;
+                    box-shadow: none !important;
+                }
+            </style>
+
+            <!-- TAB NAVIGATION: PERCAKAPAN vs JEJAK AUDIT & TIMELINE -->
+            <div class="card card-flush bg-body shadow-sm rounded-4 border-0 mb-2">
+                <div class="card-header border-0 pt-2 px-6">
+                    <ul class="nav nav-stretch nav-line-tabs nav-line-tabs-2x border-transparent fs-6 fw-bold" id="ticketDetailTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link text-active-primary pb-4 active" id="tab_thread_link" data-bs-toggle="tab" href="#pane_thread" role="tab" aria-selected="true">
+                                <i class="ki-duotone ki-messages fs-4 text-primary me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
+                                Percakapan & Respon
+                                <span class="badge badge-light-primary fw-bold ms-2 fs-9">{{ $ticket->messages->count() }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link text-active-primary pb-4" id="tab_audit_link" data-bs-toggle="tab" href="#pane_audit_trail" role="tab" aria-selected="false">
+                                <i class="ki-duotone ki-time fs-4 text-primary me-2"><span class="path1"></span><span class="path2"></span></i>
+                                Jejak Audit & Timeline
+                                <span class="badge badge-light-info fw-bold ms-2 fs-9">{{ $ticket->activities->count() }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
+
+            <div class="tab-content" id="ticketDetailTabsContent">
+                <!-- PANE 1: PERCAKAPAN THREAD -->
+                <div class="tab-pane fade show active" id="pane_thread" role="tabpanel">
+                    <div class="d-flex flex-column gap-5">
+                    <!-- 2. THREAD PERCAKAPAN (MESSAGES TIMELINE) -->
+                    <div class="d-flex align-items-center justify-content-between mt-2">
+                        <h4 class="fs-6 fw-bold text-gray-800 mb-0">
+                            <i class="ki-duotone ki-messages fs-4 text-primary me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
+                            Thread Percakapan ({{ $ticket->messages->count() }})
+                        </h4>
+                        <span class="fs-8 text-muted">Diurutkan berdasarkan waktu</span>
+                    </div>
 
             @forelse($ticket->messages as $msg)
                 @if($msg->is_internal_note)
@@ -320,97 +423,314 @@
                 </div>
             @endforelse
 
-            <!-- 3. EDITOR BALASAN INTERAKTIF (KOMPONEN UTAMA MODUL 9 & 10) -->
-            <div class="card card-flush bg-body shadow-sm rounded-4 border-0 mt-2" id="card_reply_editor">
-                <form id="form_send_message" enctype="multipart/form-data">
-                    <input type="hidden" id="reply_ticket_id" value="{{ $ticket->id }}" />
-                    <input type="hidden" id="reply_is_internal_note" name="is_internal_note" value="0" />
+            @if($ticket->is_merged)
+                <div class="card card-flush bg-light p-6 rounded-4 border border-secondary border-opacity-10 text-center mt-2 shadow-xs">
+                    <div class="symbol symbol-40px symbol-circle bg-light-warning mx-auto mb-3">
+                        <i class="ki-duotone ki-lock fs-2 text-warning"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                    </div>
+                    <h5 class="fs-7 fw-bold text-gray-800 mb-1">Form Balasan Dinonaktifkan</h5>
+                    <span class="text-muted fs-8">
+                        Tiket ini telah digabungkan ke tiket utama 
+                        <a href="{{ url('/tickets/' . $ticket->merged_into_ticket_id) }}" class="fw-bolder text-primary text-decoration-underline">
+                            #{{ $ticket->mergedInto?->ticket_number ?? $ticket->merged_into_ticket_id }}
+                        </a>. Silakan berikan respon atau catatan pada tiket utama tersebut.
+                    </span>
+                </div>
+            @else
+                <!-- 3. EDITOR BALASAN INTERAKTIF (KOMPONEN UTAMA MODUL 9 & 10) -->
+                <div class="card card-flush bg-body shadow-sm rounded-4 border-0 mt-2" id="card_reply_editor">
+                    <form id="form_send_message" enctype="multipart/form-data">
+                        <input type="hidden" id="reply_ticket_id" value="{{ $ticket->id }}" />
+                        <input type="hidden" id="reply_is_internal_note" name="is_internal_note" value="0" />
 
-                    <div class="card-header pt-4 px-6 border-0">
-                        <div class="d-flex align-items-center justify-content-between w-100 flex-wrap gap-2">
-                            <!-- Toggle Tabs: Public Reply vs Internal Note -->
-                            <div class="nav nav-pills p-1 bg-light rounded-3" role="tablist">
-                                <button type="button" class="btn btn-sm btn-color-gray-600 btn-active-primary active py-2 px-3 fw-bold fs-8 rounded-2" id="tab_public_reply">
-                                    <i class="ki-duotone ki-messages fs-6 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
-                                    Balasan Publik (Ke Pemohon)
-                                </button>
-                                <button type="button" class="btn btn-sm btn-color-gray-600 btn-active-warning py-2 px-3 fw-bold fs-8 rounded-2" id="tab_internal_note">
-                                    <i class="ki-duotone ki-lock fs-6 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
-                                    Catatan Internal (Rahasia)
-                                </button>
-                            </div>
-
-                            <!-- Macro / Canned Response Picker -->
-                            @if($cannedResponses->isNotEmpty())
-                                <div class="d-flex align-items-center">
-                                    <select id="select_canned_macro" class="form-select form-select-sm form-select-solid fs-8 rounded-3 w-225px">
-                                        <option value="">⚡ Sisipkan Canned Response...</option>
-                                        @foreach($cannedResponses as $cr)
-                                            <option value="{{ $cr->message }}" data-title="{{ $cr->title }}" data-shortcut="{{ $cr->shortcut }}">
-                                                [{{ $cr->shortcut }}] {{ Str::limit($cr->title, 20) }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                        <div class="card-header pt-4 px-6 border-0">
+                            <div class="d-flex align-items-center justify-content-between w-100 flex-wrap gap-2">
+                                <!-- Toggle Tabs: Public Reply vs Internal Note -->
+                                <div class="nav nav-pills p-1 bg-light rounded-3" role="tablist">
+                                    <button type="button" class="btn btn-sm btn-color-gray-600 btn-active-primary active py-2 px-3 fw-bold fs-8 rounded-2" id="tab_public_reply">
+                                        <i class="ki-duotone ki-messages fs-6 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
+                                        Balasan Publik (Ke Pemohon)
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-color-gray-600 btn-active-warning py-2 px-3 fw-bold fs-8 rounded-2" id="tab_internal_note">
+                                        <i class="ki-duotone ki-lock fs-6 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                        Catatan Internal (Rahasia)
+                                    </button>
                                 </div>
-                            @endif
-                        </div>
-                    </div>
 
-                    <div class="card-body pt-2 px-6 pb-4">
-                        <!-- Indikator Banner Catatan Internal -->
-                        <div id="internal_note_banner" class="alert alert-warning d-flex align-items-center p-3 rounded-3 mb-3 d-none">
-                            <i class="ki-duotone ki-shield-cross fs-3 text-warning me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
-                            <span class="fs-8 text-gray-800">Pesan ini disimpan sebagai <strong>Catatan Internal</strong> dan tidak akan dikirimkan kepada pemohon tiket.</span>
-                        </div>
-
-                        <!-- Textarea Pesan -->
-                        <div class="fv-row mb-3">
-                            <textarea id="reply_message" name="message" rows="4" 
-                                      class="form-control form-control-solid rounded-3 fs-7" 
-                                      placeholder="Tuliskan balasan untuk pemohon tiket di sini..." required></textarea>
-                        </div>
-
-                        <!-- Preview Berkas Lampiran yang Dipilih -->
-                        <div id="attachment_preview_container" class="d-flex flex-wrap gap-2 mb-3 d-none"></div>
-
-                        <!-- Footer Editor: Attachment Button, Status Select & Submit -->
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 pt-2 border-top">
-                            <div class="d-flex align-items-center gap-2">
-                                <!-- File Upload Button -->
-                                <input type="file" id="input_reply_attachments" name="attachments[]" multiple class="d-none" />
-                                <button type="button" class="btn btn-sm btn-light-secondary rounded-3 text-gray-700 py-2 px-3" id="btn_trigger_file">
-                                    <i class="ki-duotone ki-paper-clip fs-5 me-1"><span class="path1"></span><span class="path2"></span></i>
-                                    Lampirkan File / Screenshot
-                                </button>
-                                <span class="fs-8 text-muted" id="file_count_hint">Maks. 10MB</span>
-                            </div>
-
-                            <div class="d-flex align-items-center gap-2">
-                                <!-- Ubah Status Shortcut -->
-                                <select id="reply_status_shortcut" name="status" class="form-select form-select-sm form-select-solid w-175px fs-8 rounded-3">
-                                    <option value="">Status Tetap ({{ ucfirst($sVal) }})</option>
-                                    <option value="in_progress">Ubah ke In Progress</option>
-                                    <option value="pending_user">Ubah ke Pending User</option>
-                                    <option value="resolved">Ubah ke Resolved (Selesai)</option>
-                                </select>
-
-                                <!-- Submit Button -->
-                                <button type="submit" id="btn_submit_reply" class="btn btn-sm btn-primary rounded-3 py-2 px-4 shadow-sm">
-                                    <span class="indicator-label">
-                                        <i class="ki-duotone ki-send fs-5 me-1"><span class="path1"></span><span class="path2"></span></i>
-                                        Kirim Pesan
-                                    </span>
-                                    <span class="indicator-progress">Mengirim...
-                                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                    </span>
-                                </button>
+                                <!-- Macro / Canned Response Picker -->
+                                @if($cannedResponses->isNotEmpty())
+                                    <div class="d-flex align-items-center">
+                                        <select id="select_canned_macro" class="form-select form-select-sm form-select-solid fs-8 rounded-3 w-225px">
+                                            <option value="">⚡ Sisipkan Canned Response...</option>
+                                            @foreach($cannedResponses as $cr)
+                                                <option value="{{ $cr->message }}" data-title="{{ $cr->title }}" data-shortcut="{{ $cr->shortcut }}">
+                                                    [{{ $cr->shortcut }}] {{ Str::limit($cr->title, 20) }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
                             </div>
                         </div>
-                    </div>
-                </form>
-            </div>
+
+                        <div class="card-body pt-2 px-6 pb-4">
+                            <!-- Indikator Banner Catatan Internal -->
+                            <div id="internal_note_banner" class="alert alert-warning d-flex align-items-center p-3 rounded-3 mb-3 d-none">
+                                <i class="ki-duotone ki-shield-cross fs-3 text-warning me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                <span class="fs-8 text-gray-800">Pesan ini disimpan sebagai <strong>Catatan Internal</strong> dan tidak akan dikirimkan kepada pemohon tiket.</span>
+                            </div>
+
+                            <!-- Textarea Pesan -->
+                            <div class="fv-row mb-3">
+                                <textarea id="reply_message" name="message" rows="4" 
+                                          class="form-control form-control-solid rounded-3 fs-7" 
+                                          placeholder="Tuliskan balasan untuk pemohon tiket di sini..." required></textarea>
+                            </div>
+
+                            <!-- Preview Berkas Lampiran yang Dipilih -->
+                            <div id="attachment_preview_container" class="d-flex flex-wrap gap-2 mb-3 d-none"></div>
+
+                            <!-- Footer Editor: Attachment Button, Status Select & Submit -->
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 pt-2 border-top">
+                                <div class="d-flex align-items-center gap-2">
+                                    <!-- File Upload Button -->
+                                    <input type="file" id="input_reply_attachments" name="attachments[]" multiple class="d-none" />
+                                    <button type="button" class="btn btn-sm btn-light-secondary rounded-3 text-gray-700 py-2 px-3" id="btn_trigger_file">
+                                        <i class="ki-duotone ki-paper-clip fs-5 me-1"><span class="path1"></span><span class="path2"></span></i>
+                                        Lampirkan File / Screenshot
+                                    </button>
+                                    <span class="fs-8 text-muted" id="file_count_hint">Maks. 10MB</span>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <!-- Ubah Status Shortcut -->
+                                    <select id="reply_status_shortcut" name="status" class="form-select form-select-sm form-select-solid w-175px fs-8 rounded-3">
+                                        <option value="">Status Tetap ({{ ucfirst($sVal) }})</option>
+                                        <option value="in_progress">Ubah ke In Progress</option>
+                                        <option value="pending_user">Ubah ke Pending User</option>
+                                        <option value="resolved">Ubah ke Resolved (Selesai)</option>
+                                    </select>
+
+                                    <!-- Submit Button -->
+                                    <button type="submit" id="btn_submit_reply" class="btn btn-sm btn-primary rounded-3 py-2 px-4 shadow-sm">
+                                        <span class="indicator-label">
+                                            <i class="ki-duotone ki-send fs-5 me-1"><span class="path1"></span><span class="path2"></span></i>
+                                            Kirim Pesan
+                                        </span>
+                                        <span class="indicator-progress">Mengirim...
+                                            <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
+    <!-- END PANE 1: PERCAKAPAN THREAD -->
+
+        <!-- PANE 2: JEJAK AUDIT LENGKAP & TIMELINE KRONOLOGIS -->
+        <div class="tab-pane fade" id="pane_audit_trail" role="tabpanel">
+                <div class="card card-flush bg-body shadow-sm rounded-4 border-0 p-6">
+                    <!-- Header Timeline & Filter Chips -->
+                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-6 pb-4 border-bottom border-gray-200">
+                        <div>
+                            <h4 class="fw-bolder text-gray-900 mb-1">
+                                <i class="ki-duotone ki-time fs-3 text-primary me-2"><span class="path1"></span><span class="path2"></span></i>
+                                Kronologi Jejak Audit & Riwayat Tiket
+                            </h4>
+                            <span class="text-muted fs-8">Catatan audit resmi dari setiap perubahan status, penugasan teknisi, persetujuan ITIL, dan komunikasi.</span>
+                        </div>
+                        
+                        <!-- Filter Chips -->
+                        <div class="d-flex align-items-center gap-1 flex-wrap" id="audit_filter_chips">
+                            <button type="button" class="btn btn-sm btn-primary py-1 px-3 fs-9 rounded-pill audit-filter-btn active" data-filter="all">
+                                Semua ({{ $ticket->activities->count() }})
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light py-1 px-3 fs-9 rounded-pill audit-filter-btn" data-filter="status">
+                                Status & Prioritas
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light py-1 px-3 fs-9 rounded-pill audit-filter-btn" data-filter="assignment">
+                                Penugasan Teknisi
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light py-1 px-3 fs-9 rounded-pill audit-filter-btn" data-filter="approval">
+                                Otorisasi ITIL
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light py-1 px-3 fs-9 rounded-pill audit-filter-btn" data-filter="communication">
+                                Pesan & Catatan
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Timeline Body -->
+                    @if($ticket->activities->isEmpty())
+                        <div class="text-center py-10">
+                            <div class="symbol symbol-60px mb-3">
+                                <div class="symbol-label bg-light-primary rounded-circle">
+                                    <i class="ki-duotone ki-time fs-2tx text-primary"><span class="path1"></span><span class="path2"></span></i>
+                                </div>
+                            </div>
+                            <div class="fw-bold text-gray-800 fs-7">Belum Ada Aktivitas Tercatat</div>
+                            <div class="text-muted fs-8">Setiap perubahan pada tiket ini akan otomatis terekam secara kronologis di sini.</div>
+                        </div>
+                    @else
+                        <div class="timeline timeline-border-dashed">
+                            @foreach($ticket->activities as $act)
+                                @php
+                                    $type = $act->activity_type;
+                                    $config = match($type) {
+                                        'ticket_created' => [
+                                            'cat' => 'status',
+                                            'icon' => 'ki-plus',
+                                            'color' => 'primary',
+                                            'badge' => 'badge-light-primary',
+                                            'title' => 'Tiket Dibuat',
+                                        ],
+                                        'approval_requested' => [
+                                            'cat' => 'approval',
+                                            'icon' => 'ki-shield-cross',
+                                            'color' => 'warning',
+                                            'badge' => 'badge-light-warning',
+                                            'title' => 'Permintaan Otorisasi ITIL',
+                                        ],
+                                        'ticket_approved' => [
+                                            'cat' => 'approval',
+                                            'icon' => 'ki-verify',
+                                            'color' => 'success',
+                                            'badge' => 'badge-light-success',
+                                            'title' => 'Tiket Disetujui (Approved)',
+                                        ],
+                                        'ticket_rejected' => [
+                                            'cat' => 'approval',
+                                            'icon' => 'ki-cross-circle',
+                                            'color' => 'danger',
+                                            'badge' => 'badge-light-danger',
+                                            'title' => 'Tiket Ditolak (Rejected)',
+                                        ],
+                                        'assigned_agent' => [
+                                            'cat' => 'assignment',
+                                            'icon' => 'ki-user-tick',
+                                            'color' => 'info',
+                                            'badge' => 'badge-light-info',
+                                            'title' => 'Penugasan Teknisi',
+                                        ],
+                                        'status_changed' => [
+                                            'cat' => 'status',
+                                            'icon' => 'ki-arrows-circle',
+                                            'color' => 'primary',
+                                            'badge' => 'badge-light-primary',
+                                            'title' => 'Perubahan Status Tiket',
+                                        ],
+                                        'priority_changed' => [
+                                            'cat' => 'status',
+                                            'icon' => 'ki-flag',
+                                            'color' => 'danger',
+                                            'badge' => 'badge-light-danger',
+                                            'title' => 'Eskalasi Prioritas',
+                                        ],
+                                        'public_reply' => [
+                                            'cat' => 'communication',
+                                            'icon' => 'ki-messages',
+                                            'color' => 'primary',
+                                            'badge' => 'badge-light-primary',
+                                            'title' => 'Balasan Pesan Publik',
+                                        ],
+                                        'internal_note' => [
+                                            'cat' => 'communication',
+                                            'icon' => 'ki-notepad',
+                                            'color' => 'warning',
+                                            'badge' => 'badge-light-warning',
+                                            'title' => 'Catatan Internal Teknisi',
+                                        ],
+                                        'ticket_merged' => [
+                                            'cat' => 'status',
+                                            'icon' => 'ki-switch',
+                                            'color' => 'warning',
+                                            'badge' => 'badge-light-warning',
+                                            'title' => 'Penggabungan Tiket (Merged)',
+                                        ],
+                                        'ticket_merged_source' => [
+                                            'cat' => 'status',
+                                            'icon' => 'ki-switch',
+                                            'color' => 'primary',
+                                            'badge' => 'badge-light-primary',
+                                            'title' => 'Penerimaan Tiket Gabungan',
+                                        ],
+                                        default => [
+                                            'cat' => 'other',
+                                            'icon' => 'ki-abstract-8',
+                                            'color' => 'secondary',
+                                            'badge' => 'badge-light',
+                                            'title' => ucfirst(str_replace('_', ' ', $type)),
+                                        ],
+                                    };
+                                @endphp
+
+                                <div class="timeline-item mb-5 audit-log-item" data-category="{{ $config['cat'] }}">
+                                    <!-- Timeline Line & Icon -->
+                                    <div class="timeline-line"></div>
+                                    <div class="timeline-icon symbol symbol-circle symbol-35px me-4">
+                                        <div class="symbol-label bg-light-{{ $config['color'] }}">
+                                            <i class="ki-duotone {{ $config['icon'] }} fs-4 text-{{ $config['color'] }}">
+                                                <span class="path1"></span><span class="path2"></span><span class="path3"></span>
+                                            </i>
+                                        </div>
+                                    </div>
+
+                                    <!-- Timeline Content Card -->
+                                    <div class="timeline-content p-4 rounded-3 bg-light border border-secondary border-opacity-10 w-100">
+                                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                <span class="badge {{ $config['badge'] }} fw-bold fs-8">
+                                                    {{ $config['title'] }}
+                                                </span>
+                                                <span class="text-gray-900 fw-bold fs-7">
+                                                    {{ $act->user?->name ?? 'Sistem Otomatis' }}
+                                                </span>
+                                                @if($act->user?->role)
+                                                    <span class="badge badge-light-secondary text-gray-700 fs-9">{{ ucfirst($act->user->role->value ?? $act->user->role) }}</span>
+                                                @endif
+                                                @if($act->user?->job_title)
+                                                    <span class="text-muted fs-9">({{ $act->user->job_title }})</span>
+                                                @endif
+                                            </div>
+                                            <div class="d-flex align-items-center text-muted fs-8">
+                                                <i class="ki-duotone ki-calendar fs-8 text-gray-500 me-1"><span class="path1"></span><span class="path2"></span></i>
+                                                <span title="{{ $act->created_at->format('d M Y, H:i:s') }}">
+                                                    {{ $act->created_at->translatedFormat('d M Y, H:i') }} &bull; {{ $act->created_at->diffForHumans() }}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Perbandingan Nilai Lama vs Nilai Baru -->
+                                        @if($act->old_value && $act->new_value && $act->old_value !== $act->new_value)
+                                            <div class="d-inline-flex align-items-center gap-2 mb-2 py-1 px-3 bg-body rounded-2 border border-secondary border-opacity-25">
+                                                <span class="badge badge-light text-gray-600 fs-9">{{ ucfirst(str_replace('_', ' ', $act->old_value)) }}</span>
+                                                <i class="ki-duotone ki-arrow-right fs-7 text-gray-400"><span class="path1"></span><span class="path2"></span></i>
+                                                <span class="badge badge-light-{{ $config['color'] }} text-{{ $config['color'] }} fw-bold fs-9">{{ ucfirst(str_replace('_', ' ', $act->new_value)) }}</span>
+                                            </div>
+                                        @endif
+
+                                        <!-- Catatan Tambahan -->
+                                        @if($act->notes)
+                                            <div class="fs-8 text-gray-700 lh-base mt-1">
+                                                {{ $act->notes }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </div>
+            <!-- END PANE 2: JEJAK AUDIT -->
+        </div>
+        <!-- END TAB CONTENT -->
+    </div>
+</div>
 
     <!-- =================================================================== -->
     <!-- KOLOM KANAN: SIDEBAR PROPERTI SLA, PEMOHON, TEKNISI & CMDB         -->
@@ -566,6 +886,41 @@
                 </div>
             </div>
 
+            @if($ticket->mergedTickets->isNotEmpty())
+                <!-- KARTU TIKET YANG DIGABUNGKAN (MERGED TICKETS) -->
+                <div class="card card-flush bg-body shadow-sm rounded-4 border-0">
+                    <div class="card-header pt-6 px-6 pb-2 border-0">
+                        <div class="card-title d-flex align-items-center justify-content-between w-100">
+                            <h5 class="fw-bolder text-gray-900 fs-6 mb-0">
+                                <i class="ki-duotone ki-switch fs-4 text-primary me-2"><span class="path1"></span><span class="path2"></span></i>
+                                Tiket Tergabung
+                            </h5>
+                            <span class="badge badge-light-primary fw-bold fs-9">{{ $ticket->mergedTickets->count() }} tiket</span>
+                        </div>
+                    </div>
+                    <div class="card-body pt-2 px-6 pb-6">
+                        <span class="text-muted fs-8 d-block mb-3">Tiket duplikat yang telah digabungkan ke tiket ini:</span>
+                        <div class="d-flex flex-column gap-2">
+                            @foreach($ticket->mergedTickets as $mTicket)
+                                <div class="d-flex align-items-center justify-content-between p-3 rounded-3 bg-light border border-secondary border-opacity-10">
+                                    <div class="d-flex flex-column me-2 overflow-hidden">
+                                        <a href="{{ url('/tickets/' . $mTicket->id) }}" class="fw-bold text-gray-900 text-hover-primary fs-8 text-truncate" title="{{ $mTicket->subject }}">
+                                            #{{ $mTicket->ticket_number }} - {{ $mTicket->subject }}
+                                        </a>
+                                        <span class="text-muted fs-9">
+                                            {{ $mTicket->requester?->name ?? 'Pemohon' }} &bull; {{ $mTicket->created_at->format('d/m/Y') }}
+                                        </span>
+                                    </div>
+                                    <a href="{{ url('/tickets/' . $mTicket->id) }}" class="btn btn-icon btn-sm btn-light-primary rounded-circle w-25px h-25px flex-shrink-0" title="Buka tiket">
+                                        <i class="ki-duotone ki-arrow-right fs-6"><span class="path1"></span><span class="path2"></span></i>
+                                    </a>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <!-- 3. KARTU ASET CMDB (JIKA ADA) -->
             <div class="card card-flush bg-body shadow-sm rounded-4 border-0">
                 <div class="card-header pt-6 px-6 pb-2 border-0">
@@ -624,6 +979,15 @@
                             <div class="text-muted fs-8 text-center py-2">Belum ada aktivitas tercatat</div>
                         @endforelse
                     </div>
+
+                    @if($ticket->activities->count() > 0)
+                        <div class="pt-3 border-top border-secondary border-opacity-10 mt-3">
+                            <button type="button" class="btn btn-sm btn-light-primary w-100 fs-8 py-2 rounded-3" id="btn_switch_to_audit_trail">
+                                <i class="ki-duotone ki-time fs-5 me-1"><span class="path1"></span><span class="path2"></span></i>
+                                Lihat Semua Jejak Audit ({{ $ticket->activities->count() }})
+                            </button>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -634,6 +998,7 @@
 @include('tickets._modal_assign', ['users' => $users])
 @include('tickets._modal_status')
 @include('tickets._modal_approval')
+@include('tickets._modal_merge')
 @endsection
 
 @push('scripts')
@@ -653,6 +1018,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (isInternal) {
             tabInternal.classList.add('active');
             tabPublic.classList.remove('active');
+            tabPublic.blur();
             isInternalInput.value = '1';
             internalBanner.classList.remove('d-none');
             replyTextarea.classList.add('border-warning');
@@ -663,6 +1029,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             tabPublic.classList.add('active');
             tabInternal.classList.remove('active');
+            tabInternal.blur();
             isInternalInput.value = '0';
             internalBanner.classList.add('d-none');
             replyTextarea.classList.remove('border-warning');
@@ -1090,6 +1457,246 @@ document.addEventListener('DOMContentLoaded', function () {
                 btnSubmitReject.removeAttribute('data-kt-indicator');
                 btnSubmitReject.disabled = false;
             });
+        });
+    }
+
+    // Filter chips for Audit Trail Timeline
+    document.querySelectorAll('.audit-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.audit-filter-btn').forEach(b => {
+                b.classList.remove('btn-primary', 'active');
+                b.classList.add('btn-light');
+            });
+            this.classList.remove('btn-light');
+            this.classList.add('btn-primary', 'active');
+
+            const filter = this.getAttribute('data-filter');
+            document.querySelectorAll('.audit-log-item').forEach(item => {
+                if (filter === 'all' || item.getAttribute('data-category') === filter) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+
+    // Sidebar Mini Timeline shortcut to switch to Audit Trail tab
+    const btnSwitchAudit = document.getElementById('btn_switch_to_audit_trail');
+    if (btnSwitchAudit) {
+        btnSwitchAudit.addEventListener('click', function () {
+            const auditTab = document.getElementById('tab_audit_link');
+            if (auditTab) {
+                const tabInstance = bootstrap.Tab.getInstance(auditTab) || new bootstrap.Tab(auditTab);
+                tabInstance.show();
+                document.getElementById('pane_audit_trail')?.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // Ticket Merging Handler (Zendesk / Freshdesk Style)
+    // -------------------------------------------------------------
+    const mergeModalEl = document.getElementById('kt_modal_merge_ticket');
+    const formMerge = document.getElementById('form_merge_ticket');
+    const selectTargetTicket = document.getElementById('select_target_ticket');
+    const btnSubmitMerge = document.getElementById('btn_submit_merge');
+
+    if (mergeModalEl && selectTargetTicket) {
+        mergeModalEl.addEventListener('show.bs.modal', function () {
+            selectTargetTicket.innerHTML = '<option value="">Memuat daftar tiket kandidat...</option>';
+            selectTargetTicket.disabled = true;
+
+            fetch(`/api/v1/tickets/{{ $ticket->id }}/merge-candidates`, {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                selectTargetTicket.innerHTML = '<option value="">-- Pilih Tiket Utama (Primary) --</option>';
+                const candidates = data.candidates || [];
+                if (candidates.length === 0) {
+                    selectTargetTicket.innerHTML = '<option value="">(Tidak ada tiket lain yang tersedia untuk digabungkan)</option>';
+                    return;
+                }
+                candidates.forEach(cand => {
+                    const opt = document.createElement('option');
+                    opt.value = cand.id;
+                    const reqName = cand.requester ? ` - Pelapor: ${cand.requester.name}` : '';
+                    opt.textContent = `#${cand.ticket_number} - ${cand.subject} [${cand.status.toUpperCase()}]${reqName}`;
+                    selectTargetTicket.appendChild(opt);
+                });
+                selectTargetTicket.disabled = false;
+            })
+            .catch(err => {
+                selectTargetTicket.innerHTML = '<option value="">Gagal memuat daftar tiket kandidat</option>';
+            });
+        });
+    }
+
+    if (formMerge) {
+        formMerge.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const targetId = selectTargetTicket ? selectTargetTicket.value : '';
+            const reasonNotes = document.getElementById('merge_reason_notes')?.value?.trim() || '';
+
+            if (!targetId) {
+                Swal.fire('Validasi', 'Silakan tentukan tiket target utama untuk penggabungan.', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Konfirmasi Penggabungan',
+                html: `Apakah Anda yakin ingin menggabungkan tiket ini?<br><br><span class="text-danger fw-bold">Perhatian:</span> Tiket ini akan langsung <strong>ditutup (Closed)</strong> dan dialihkan ke tiket utama.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Gabungkan Sekarang',
+                cancelButtonText: 'Batal',
+                customClass: {
+                    confirmButton: 'btn btn-primary',
+                    cancelButton: 'btn btn-light'
+                }
+            }).then(result => {
+                if (!result.isConfirmed) return;
+
+                if (btnSubmitMerge) {
+                    btnSubmitMerge.setAttribute('data-kt-indicator', 'on');
+                    btnSubmitMerge.disabled = true;
+                }
+
+                fetch(`/api/v1/tickets/{{ $ticket->id }}/merge`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify({
+                        target_ticket_id: targetId,
+                        notes: reasonNotes
+                    })
+                })
+                .then(async res => {
+                    const data = await res.json();
+                    if (!res.ok) throw data;
+                    return data;
+                })
+                .then(data => {
+                    Swal.fire({
+                        title: 'Berhasil Digabungkan!',
+                        text: data.message || 'Tiket berhasil digabungkan ke tiket utama.',
+                        icon: 'success',
+                        confirmButtonText: 'Buka Tiket Utama'
+                    }).then(() => {
+                        window.location.href = `/tickets/${targetId}`;
+                    });
+                })
+                .catch(err => {
+                    Swal.fire('Gagal Menggabungkan', err.message || err.error || 'Terjadi kesalahan sistem saat menggabungkan tiket.', 'error');
+                })
+                .finally(() => {
+                    if (btnSubmitMerge) {
+                        btnSubmitMerge.removeAttribute('data-kt-indicator');
+                        btnSubmitMerge.disabled = false;
+                    }
+                });
+            });
+        });
+    }
+
+    // -------------------------------------------------------------
+    // Modul 13: Agent Collision Detection (Realtime Heartbeat Presence)
+    // -------------------------------------------------------------
+    const collisionTicketId = {{ $ticket->id }};
+    const collisionUserId = {{ auth()->id() ?? 'null' }};
+    const collisionUserName = @json(auth()->user()?->name ?? 'Teknisi');
+
+    function sendCollisionPing() {
+        if (!collisionTicketId || !collisionUserId) return;
+
+        fetch(`/api/v1/tickets/${collisionTicketId}/collisions/ping`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: JSON.stringify({
+                user_id: collisionUserId,
+                user_name: collisionUserName
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.success) {
+                updateCollisionPresenceBanner(data.agents || []);
+            }
+        })
+        .catch(() => {});
+    }
+
+    function updateCollisionPresenceBanner(agents) {
+        const banner = document.getElementById('agent_collision_banner');
+        const textEl = document.getElementById('agent_collision_text');
+        const avatarsEl = document.getElementById('agent_collision_avatars');
+        if (!banner || !textEl || !avatarsEl) return;
+
+        if (agents && agents.length > 0) {
+            const agentNames = agents.map(a => a.name).join(', ');
+            textEl.innerHTML = `<strong>${agentNames}</strong> saat ini juga sedang aktif melihat tiket ini. Harap berkoordinasi untuk menghindari duplikasi respon.`;
+
+            avatarsEl.innerHTML = '';
+            agents.forEach(agent => {
+                const initial = (agent.name || 'A').charAt(0).toUpperCase();
+                const roleDesc = agent.job_title || agent.role || 'Teknisi';
+                const item = document.createElement('div');
+                item.className = 'symbol symbol-30px symbol-circle';
+                item.setAttribute('data-bs-toggle', 'tooltip');
+                item.setAttribute('data-bs-placement', 'top');
+                item.setAttribute('title', `${agent.name} (${roleDesc})`);
+
+                if (agent.avatar_path) {
+                    item.innerHTML = `<img src="/storage/${agent.avatar_path}" alt="${agent.name}" />`;
+                } else {
+                    item.innerHTML = `<div class="symbol-label bg-warning text-white fw-bold fs-8">${initial}</div>`;
+                }
+                avatarsEl.appendChild(item);
+            });
+
+            if (window.bootstrap && bootstrap.Tooltip) {
+                avatarsEl.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+            }
+
+            banner.classList.remove('d-none');
+            banner.classList.add('d-flex');
+        } else {
+            banner.classList.add('d-none');
+            banner.classList.remove('d-flex');
+            avatarsEl.innerHTML = '';
+        }
+    }
+
+    if (collisionTicketId && collisionUserId) {
+        sendCollisionPing();
+        setInterval(sendCollisionPing, 10000);
+
+        window.addEventListener('beforeunload', function () {
+            const leaveUrl = `/api/v1/tickets/${collisionTicketId}/collisions/leave`;
+            const payload = JSON.stringify({ user_id: collisionUserId });
+
+            if (navigator.sendBeacon) {
+                const blob = new Blob([payload], { type: 'application/json' });
+                navigator.sendBeacon(leaveUrl, blob);
+            } else {
+                fetch(leaveUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                    keepalive: true
+                });
+            }
         });
     }
 });

@@ -96,9 +96,14 @@ class Ticket extends Model
         return $this->belongsTo(CompanyAsset::class, 'asset_id');
     }
 
-    public function mergedIntoTicket(): BelongsTo
+    public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_ticket_id');
+    }
+
+    public function mergedIntoTicket(): BelongsTo
+    {
+        return $this->mergedInto();
     }
 
     public function mergedTickets(): HasMany
