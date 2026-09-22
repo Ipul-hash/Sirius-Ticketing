@@ -501,7 +501,9 @@
                                     data-id="{{ $ticket->id }}"
                                     data-number="{{ $ticket->ticket_number }}"
                                     data-subject="{{ $ticket->subject }}"
-                                    data-company="{{ $ticket->company_id }}">
+                                    data-company="{{ $ticket->company_id }}"
+                                    data-status="{{ $ticket->status->value }}"
+                                    data-approval-status="{{ $ticket->approval_status->value }}">
                                 Ubah
                             </button>
                         </div>
@@ -524,7 +526,9 @@
                                         data-id="{{ $ticket->id }}"
                                         data-number="{{ $ticket->ticket_number }}"
                                         data-subject="{{ $ticket->subject }}"
-                                        data-company="{{ $ticket->company_id }}">
+                                        data-company="{{ $ticket->company_id }}"
+                                        data-status="{{ $ticket->status->value }}"
+                                        data-approval-status="{{ $ticket->approval_status->value }}">
                                     Tugaskan
                                 </button>
                             </div>
@@ -808,6 +812,32 @@ document.addEventListener('DOMContentLoaded', function () {
             const number = this.getAttribute('data-number');
             const subject = this.getAttribute('data-subject');
             const companyId = this.getAttribute('data-company');
+            const status = this.getAttribute('data-status');
+            const approvalStatus = this.getAttribute('data-approval-status');
+
+            if (status === 'pending_approval' || approvalStatus === 'pending') {
+                Swal.fire({
+                    title: 'Persetujuan Diperlukan!',
+                    html: `Tiket <strong>"${number}"</strong> saat ini masih berstatus <strong>Pending Approval</strong>.<br><br>Mohon lakukan persetujuan (approve) oleh atasan atau approver terkait terlebih dahulu sebelum menugaskan teknisi penanganan.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Setujui Sekarang',
+                    cancelButtonText: 'Tutup',
+                    customClass: {
+                        confirmButton: 'btn btn-success',
+                        cancelButton: 'btn btn-light'
+                    }
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        const approveModalEl = document.getElementById('kt_modal_approve_ticket');
+                        if (approveModalEl) {
+                            const approveModal = bootstrap.Modal.getInstance(approveModalEl) || new bootstrap.Modal(approveModalEl);
+                            approveModal.show();
+                        }
+                    }
+                });
+                return;
+            }
 
             document.getElementById('quick_assign_ticket_id').value = id;
             document.getElementById('quick_assign_ticket_number').innerText = number;
@@ -888,6 +918,30 @@ document.addEventListener('DOMContentLoaded', function () {
             const number = this.getAttribute('data-number');
             const subject = this.getAttribute('data-subject');
             const status = this.getAttribute('data-status');
+
+            @if($ticket->status->value === 'pending_approval' || $ticket->approval_status->value === 'pending')
+                Swal.fire({
+                    title: 'Persetujuan Diperlukan!',
+                    html: `Tiket <strong>"${number}"</strong> saat ini masih berstatus <strong>Pending Approval</strong>.<br><br>Status operasional belum dapat diubah sebelum disetujui oleh atasan terkait.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Setujui Sekarang',
+                    cancelButtonText: 'Tutup',
+                    customClass: {
+                        confirmButton: 'btn btn-success',
+                        cancelButton: 'btn btn-light'
+                    }
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        const approveModalEl = document.getElementById('kt_modal_approve_ticket');
+                        if (approveModalEl) {
+                            const approveModal = bootstrap.Modal.getInstance(approveModalEl) || new bootstrap.Modal(approveModalEl);
+                            approveModal.show();
+                        }
+                    }
+                });
+                return;
+            @endif
 
             document.getElementById('quick_status_ticket_id').value = id;
             document.getElementById('quick_status_ticket_number').innerText = number;

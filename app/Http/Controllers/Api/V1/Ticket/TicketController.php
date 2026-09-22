@@ -453,6 +453,15 @@ class TicketController extends Controller
         $oldStatus = $ticket->status->value;
         $newStatus = $validated['status'];
 
+        // Cegah transisi status ke aktif jika tiket masih berstatus Pending Approval
+        if (($ticket->status === TicketStatus::PendingApproval || $ticket->approval_status === TicketApprovalStatus::Pending)
+            && in_array($newStatus, [TicketStatus::Open->value, TicketStatus::InProgress->value, TicketStatus::Resolved->value])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tiket ini masih berstatus Pending Approval. Mohon setujui (approve) tiket oleh atasan terkait terlebih dahulu sebelum mengubah status operasional.',
+            ], 422);
+        }
+
         $updateData = ['status' => $newStatus];
 
         if ($newStatus === TicketStatus::Resolved->value && $ticket->resolved_at === null) {
@@ -525,6 +534,14 @@ class TicketController extends Controller
 
         $oldAgentId = $ticket->assigned_to;
         $newAgentId = ! empty($validated['assigned_to']) ? (int) $validated['assigned_to'] : null;
+
+        // Cegah penugasan teknisi jika tiket masih berstatus Pending Approval
+        if (($ticket->status === TicketStatus::PendingApproval || $ticket->approval_status === TicketApprovalStatus::Pending) && $newAgentId !== null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tiket ini masih berstatus Pending Approval. Mohon setujui (approve) oleh atasan terkait terlebih dahulu sebelum menugaskan teknisi.',
+            ], 422);
+        }
 
         $updateData = ['assigned_to' => $newAgentId];
 

@@ -500,6 +500,11 @@
                 </thead>
                 <tbody class="fw-semibold text-gray-600">
                     @forelse($tickets as $ticket)
+                        @php
+                            $sVal = $ticket->status->value ?? $ticket->status;
+                            $pVal = $ticket->priority->value ?? $ticket->priority;
+                            $approvalVal = $ticket->approval_status->value ?? $ticket->approval_status ?? 'none';
+                        @endphp
                         <tr class="hover-bg-light transition-all">
                             <!-- Nomor Tiket -->
                             <td>
@@ -574,7 +579,9 @@
                                             data-id="{{ $ticket->id }}" 
                                             data-number="{{ $ticket->ticket_number }}" 
                                             data-subject="{{ $ticket->subject }}" 
-                                            data-company="{{ $ticket->company_id }}">
+                                            data-company="{{ $ticket->company_id }}"
+                                            data-status="{{ $sVal }}"
+                                            data-approval-status="{{ $approvalVal }}">
                                         <i class="ki-duotone ki-plus fs-7 me-1"><span class="path1"></span><span class="path2"></span></i>
                                         Tugaskan
                                     </button>
@@ -662,6 +669,8 @@
                                             data-number="{{ $ticket->ticket_number }}" 
                                             data-subject="{{ $ticket->subject }}" 
                                             data-company="{{ $ticket->company_id }}"
+                                            data-status="{{ $sVal }}"
+                                            data-approval-status="{{ $approvalVal }}"
                                             title="Tugaskan Teknisi">
                                         <i class="ki-duotone ki-user-square fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                                     </button>
@@ -672,6 +681,7 @@
                                             data-number="{{ $ticket->ticket_number }}" 
                                             data-subject="{{ $ticket->subject }}" 
                                             data-status="{{ $sVal }}"
+                                            data-approval-status="{{ $approvalVal }}"
                                             title="Ubah Status">
                                         <i class="ki-duotone ki-arrows-circle fs-4"><span class="path1"></span><span class="path2"></span></i>
                                     </button>
@@ -926,6 +936,28 @@ document.addEventListener('DOMContentLoaded', function () {
             const number = this.getAttribute('data-number');
             const subject = this.getAttribute('data-subject');
             const companyId = this.getAttribute('data-company');
+            const status = this.getAttribute('data-status');
+            const approvalStatus = this.getAttribute('data-approval-status');
+
+            if (status === 'pending_approval' || approvalStatus === 'pending') {
+                Swal.fire({
+                    title: 'Persetujuan Diperlukan!',
+                    html: `Tiket <strong>"${number}"</strong> saat ini masih berstatus <strong>Pending Approval</strong>.<br><br>Mohon lakukan persetujuan (approve) oleh atasan atau approver terkait terlebih dahulu sebelum menugaskan teknisi penanganan.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Buka Menu Approval',
+                    cancelButtonText: 'Tutup',
+                    customClass: {
+                        confirmButton: 'btn btn-warning',
+                        cancelButton: 'btn btn-light'
+                    }
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        window.location.href = '{{ route("approvals.index") }}';
+                    }
+                });
+                return;
+            }
 
             document.getElementById('quick_assign_ticket_id').value = id;
             document.getElementById('quick_assign_ticket_number').innerText = number;
@@ -1001,6 +1033,27 @@ document.addEventListener('DOMContentLoaded', function () {
             const number = this.getAttribute('data-number');
             const subject = this.getAttribute('data-subject');
             const currentStatus = this.getAttribute('data-status');
+            const approvalStatus = this.getAttribute('data-approval-status');
+
+            if (currentStatus === 'pending_approval' || approvalStatus === 'pending') {
+                Swal.fire({
+                    title: 'Persetujuan Diperlukan!',
+                    html: `Tiket <strong>"${number}"</strong> masih berstatus <strong>Pending Approval</strong>.<br><br>Status operasional tiket belum dapat diubah sebelum disetujui oleh atasan terkait.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Buka Menu Approval',
+                    cancelButtonText: 'Tutup',
+                    customClass: {
+                        confirmButton: 'btn btn-warning',
+                        cancelButton: 'btn btn-light'
+                    }
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        window.location.href = '{{ route("approvals.index") }}';
+                    }
+                });
+                return;
+            }
 
             document.getElementById('quick_status_ticket_id').value = id;
             document.getElementById('quick_status_ticket_number').innerText = number;

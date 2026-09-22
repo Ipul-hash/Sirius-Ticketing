@@ -231,3 +231,77 @@ test('halaman web approvals dapat diakses dan menampilkan tiket yang membutuhkan
         ->assertSee('Permintaan Lisensi Figma Enterprise')
         ->assertSee('TCK-2026-WEB-APP');
 });
+
+test('penugasan teknisi dicegah jika tiket masih berstatus pending approval', function () {
+    $ticket = Ticket::create([
+        'company_id' => $this->company->id,
+        'ticket_number' => 'TCK-2026-GUARD-1',
+        'subject' => 'Pembelian Monitor UltraWide 34 Inch',
+        'description' => 'Untuk kebutuhan coding.',
+        'category_id' => $this->approvalCategory->id,
+        'department_id' => $this->department->id,
+        'requester_id' => $this->requester->id,
+        'status' => TicketStatus::PendingApproval,
+        'priority' => TicketPriority::High,
+        'approval_status' => TicketApprovalStatus::Pending,
+    ]);
+
+    $agent = User::create([
+        'company_id' => $this->company->id,
+        'name' => 'Teknisi Test',
+        'email' => 'teknisi.test.'.uniqid().'@sirius.io',
+        'password' => bcrypt('password'),
+        'role' => UserRole::Agent,
+        'is_active' => true,
+    ]);
+
+    $response = $this->patchJson("/api/v1/tickets/{$ticket->id}/assign", [
+        'assigned_to' => $agent->id,
+        'notes' => 'Coba assign sebelum di-approve',
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJson([
+            'success' => false,
+        ])
+        ->assertJsonFragment([
+            'message' => 'Tiket ini masih berstatus Pending Approval. Mohon setujui (approve) oleh atasan terkait terlebih dahulu sebelum menugaskan teknisi.',
+        ]);
+
+    $ticket->refresh();
+    expect($ticket->assigned_to)->toBeNull();
+});
+
+test('perubahan status tiket dicegah jika tiket masih berstatus pending approval', function () {
+    $ticket = Ticket::create([
+        'company_id' => $this->company->id,
+        'ticket_number' => 'TCK-2026-GUARD-2',
+        'subject' => 'Server Cloud AWS Tambahan',
+        'description' => 'Server staging baru.',
+        'category_id' => $this->approvalCategory->id,
+        'department_id' => $this->department->id,
+        'requester_id' => $this->requester->id,
+        'status' => TicketStatus::PendingApproval,
+        'priority' => TicketPriority::Urgent,
+        'approval_status' => TicketApprovalStatus::Pending,
+    ]);
+
+    $response = $this->patchJson("/api/v1/tickets/{$ticket->id}/status", [
+        'status' => 'in_progress',
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJson([
+            'success' => false,
+        ]);
+
+    $ticket->refresh();
+    expect($ticket->status)->toBe(TicketStatus::PendingApproval);
+});
+
+test('halaman utama antrean tiket tickets.index dapat dirender tanpa error view', function () {
+    $response = $this->get('/tickets');
+
+    $response->assertStatus(200)
+        ->assertViewIs('tickets.index');
+});
