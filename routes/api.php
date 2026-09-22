@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\V1\Master\DepartmentController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
+use App\Http\Controllers\Api\V1\Ticket\TicketApprovalController;
 use App\Http\Controllers\Api\V1\Ticket\TicketController;
+use App\Http\Controllers\Api\V1\Ticket\TicketMessageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +108,16 @@ Route::prefix('v1')->group(function () {
     Route::patch('/tickets/{id}/assign', [TicketController::class, 'assign']);
     Route::delete('/tickets/{id}', [TicketController::class, 'destroy']);
 
+    // Percakapan & Lampiran Tiket
+    Route::get('/tickets/{ticketId}/messages', [TicketMessageController::class, 'index']);
+    Route::post('/tickets/{ticketId}/messages', [TicketMessageController::class, 'store']);
+    Route::get('/attachments/{id}/download', [TicketMessageController::class, 'downloadAttachment']);
+
+    // Persetujuan Tiket ITIL (Ticket Approvals)
+    Route::get('/approvals/pending', [TicketApprovalController::class, 'indexPending']);
+    Route::post('/tickets/{ticketId}/approve', [TicketApprovalController::class, 'approve']);
+    Route::post('/tickets/{ticketId}/reject', [TicketApprovalController::class, 'reject']);
+
     Route::get('/{tenant}/tickets', [TicketController::class, 'index']);
     Route::post('/{tenant}/tickets', [TicketController::class, 'store']);
     Route::get('/{tenant}/tickets/{id}', [TicketController::class, 'show']);
@@ -113,4 +125,11 @@ Route::prefix('v1')->group(function () {
     Route::patch('/{tenant}/tickets/{id}/status', [TicketController::class, 'updateStatus']);
     Route::patch('/{tenant}/tickets/{id}/assign', [TicketController::class, 'assign']);
     Route::delete('/{tenant}/tickets/{id}', [TicketController::class, 'destroy']);
+
+    Route::get('/{tenant}/tickets/{ticketId}/messages', [TicketMessageController::class, 'index']);
+    Route::post('/{tenant}/tickets/{ticketId}/messages', [TicketMessageController::class, 'store']);
+
+    Route::get('/{tenant}/approvals/pending', [TicketApprovalController::class, 'indexPending']);
+    Route::post('/{tenant}/tickets/{ticketId}/approve', [TicketApprovalController::class, 'approve']);
+    Route::post('/{tenant}/tickets/{ticketId}/reject', [TicketApprovalController::class, 'reject']);
 });

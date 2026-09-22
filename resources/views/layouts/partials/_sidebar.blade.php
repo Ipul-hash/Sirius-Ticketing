@@ -131,11 +131,12 @@
                 </div>
 
                 <div class="menu-item">
-                    <a class="menu-link {{ request()->is('approvals*') ? 'active' : '' }}" href="#!">
+                    <a class="menu-link {{ request()->is('approvals*') ? 'active' : '' }}" href="{{ route('approvals.index') }}">
                         <span class="menu-icon">
                             <i class="ki-duotone ki-verify fs-2"><span class="path1"></span><span class="path2"></span></i>
                         </span>
                         <span class="menu-title">Menunggu Approval</span>
+                        <span class="badge badge-light-warning fs-8 fw-bold ms-auto">Otorisasi</span>
                     </a>
                 </div>
 

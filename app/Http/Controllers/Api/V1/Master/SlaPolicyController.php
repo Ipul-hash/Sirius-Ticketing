@@ -23,7 +23,6 @@ class SlaPolicyController extends Controller
 
         $policies = SlaPolicy::where('company_id', $companyId)->get();
 
-        // Jika tenant belum memiliki kebijakan SLA, lakukan auto-seeding default standard
         if ($policies->isEmpty()) {
             $defaultSlas = [
                 ['priority' => TicketPriority::Low, 'first_response' => 1440, 'resolution' => 2880],

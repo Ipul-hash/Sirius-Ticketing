@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AssetStatus;
 use App\Enums\CompanyPlan;
 use App\Enums\CompanyStatus;
+use App\Enums\TicketApprovalStatus;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
 use App\Enums\UserRole;
@@ -556,5 +557,173 @@ class PageController extends Controller
             'statuses',
             'activeTab'
         ));
+    }
+
+    /**
+     * Menampilkan Halaman Menunggu Approval & Workflow Otorisasi (Metronic 8).
+     */
+    public function approvals(Request $request): View
+    {
+        $companies = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug']);
+
+        $departments = Department::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'company_id']);
+
+        $categories = TicketCategory::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'company_id']);
+
+        $query = Ticket::query()
+            ->with([
+                'company:id,name,slug',
+                'department:id,name',
+                'category:id,name,requires_approval',
+                'requester:id,name,email,avatar_path,job_title,department_id',
+                'assignedAgent:id,name,email,avatar_path,job_title',
+                'asset:id,name,asset_tag,category',
+                'approvals' => function ($q) {
+                    $q->with('approver:id,name,email,role,job_title')->latest();
+                },
+            ]);
+
+        // Status tab: 'pending' (default), 'approved', 'rejected', 'all'
+        $activeTab = $request->query('status', 'pending');
+
+        if ($activeTab === 'approved') {
+            $query->where('approval_status', TicketApprovalStatus::Approved);
+        } elseif ($activeTab === 'rejected') {
+            $query->where('approval_status', TicketApprovalStatus::Rejected);
+        } elseif ($activeTab === 'all') {
+            $query->where(function ($q) {
+                $q->where('status', TicketStatus::PendingApproval)
+                    ->orWhere('approval_status', '!=', TicketApprovalStatus::None);
+            });
+        } else {
+            $activeTab = 'pending';
+            $query->where(function ($q) {
+                $q->where('status', TicketStatus::PendingApproval)
+                    ->orWhere('approval_status', TicketApprovalStatus::Pending);
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('ticket_number', 'like', "%{$search}%")
+                    ->orWhere('subject', 'like', "%{$search}%")
+                    ->orWhereHas('requester', function ($u) use ($search) {
+                        $u->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+
+        if ($request->filled('department_id')) {
+            $query->where('department_id', $request->department_id);
+        }
+
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        $tickets = $query->orderByRaw("CASE WHEN priority = 'urgent' THEN 1 WHEN priority = 'high' THEN 2 WHEN priority = 'medium' THEN 3 ELSE 4 END")
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
+        $pendingCount = Ticket::where(function ($q) {
+            $q->where('status', TicketStatus::PendingApproval)
+                ->orWhere('approval_status', TicketApprovalStatus::Pending);
+        })->count();
+
+        $urgentPendingCount = Ticket::where(function ($q) {
+            $q->where('status', TicketStatus::PendingApproval)
+                ->orWhere('approval_status', TicketApprovalStatus::Pending);
+        })->whereIn('priority', [TicketPriority::Urgent, TicketPriority::High])->count();
+
+        $approvedCount = Ticket::where('approval_status', TicketApprovalStatus::Approved)->count();
+        $rejectedCount = Ticket::where('approval_status', TicketApprovalStatus::Rejected)->count();
+
+        $stats = [
+            'pending_count' => $pendingCount,
+            'urgent_pending_count' => $urgentPendingCount,
+            'approved_count' => $approvedCount,
+            'rejected_count' => $rejectedCount,
+        ];
+
+        $priorities = TicketPriority::cases();
+
+        return view('tickets.approvals', compact(
+            'tickets',
+            'companies',
+            'departments',
+            'categories',
+            'stats',
+            'priorities',
+            'activeTab'
+        ));
+    }
+
+    /**
+     * Menampilkan Halaman Detail Tiket & Percakapan (Metronic 8).
+     */
+    public function ticketDetail(Request $request, string $id): View
+    {
+        $ticket = Ticket::query()
+            ->with([
+                'company:id,name,slug',
+                'department:id,name',
+                'category:id,name,requires_approval',
+                'requester:id,name,email,avatar_path,job_title,phone,department_id',
+                'assignedAgent:id,name,email,avatar_path,job_title',
+                'asset:id,name,asset_tag,category,status',
+                'messages' => function ($q) {
+                    $q->with(['user:id,name,email,role,job_title,avatar_path', 'attachments'])
+                        ->orderBy('created_at', 'asc');
+                },
+                'activities' => function ($q) {
+                    $q->with('user:id,name,role')->orderBy('created_at', 'desc');
+                },
+                'approvals' => function ($q) {
+                    $q->with('approver:id,name,email,role,job_title')->latest();
+                },
+            ])
+            ->where('id', $id)
+            ->orWhere('ticket_number', $id)
+            ->firstOrFail();
+
+        $agents = User::query()
+            ->where('company_id', $ticket->company_id)
+            ->where('is_active', true)
+            ->whereIn('role', [UserRole::Agent, UserRole::CompanyAdmin, UserRole::Superadmin])
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'job_title', 'role']);
+
+        $cannedResponses = CannedResponse::query()
+            ->where(function ($q) use ($ticket) {
+                $q->where('company_id', $ticket->company_id)
+                    ->where(function ($sub) use ($ticket) {
+                        $sub->whereNull('department_id')
+                            ->orWhere('department_id', $ticket->department_id);
+                    });
+            })
+            ->orderBy('shortcut')
+            ->get(['id', 'title', 'shortcut', 'message']);
+
+        $statuses = TicketStatus::cases();
+        $priorities = TicketPriority::cases();
+        $users = $agents;
+
+        return view('tickets.show', compact('ticket', 'agents', 'users', 'cannedResponses', 'statuses', 'priorities'));
     }
 }

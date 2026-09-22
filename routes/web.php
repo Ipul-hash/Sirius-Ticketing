@@ -16,4 +16,6 @@ Route::controller(PageController::class)->group(function () {
     Route::get('/categories', 'ticketCategories')->name('categories.index');
     Route::get('/canned-responses', 'cannedResponses')->name('canned-responses.index');
     Route::get('/tickets', 'tickets')->name('tickets.index');
+    Route::get('/approvals', 'approvals')->name('approvals.index');
+    Route::get('/tickets/{id}', 'ticketDetail')->name('tickets.show');
 });

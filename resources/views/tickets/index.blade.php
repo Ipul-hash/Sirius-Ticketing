@@ -291,9 +291,9 @@
                                             </button>
                                         @endif
                                     </div>
-                                    <div class="text-gray-900 fw-bold fs-7 text-truncate mb-1" title="{{ $crit->subject }}">
+                                    <a href="{{ url('/tickets/' . $crit->id) }}" class="text-gray-900 fw-bold fs-7 text-truncate mb-1 text-hover-primary text-decoration-none d-block" title="{{ $crit->subject }}">
                                         {{ Str::limit($crit->subject, 38) }}
-                                    </div>
+                                    </a>
                                     <div class="d-flex align-items-center justify-content-between fs-8 text-gray-600">
                                         <span class="text-truncate" style="max-width: 130px;">
                                             <i class="ki-duotone ki-user fs-8 me-1"><span class="path1"></span><span class="path2"></span></i>
@@ -504,9 +504,9 @@
                             <!-- Nomor Tiket -->
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <span class="badge badge-light-primary fw-bold fs-7 px-3 py-2 cursor-pointer shadow-xs rounded-2">
+                                    <a href="{{ url('/tickets/' . $ticket->id) }}" class="badge badge-light-primary fw-bold fs-7 px-3 py-2 cursor-pointer shadow-xs rounded-2 text-decoration-none text-hover-primary">
                                         {{ $ticket->ticket_number }}
-                                    </span>
+                                    </a>
                                 </div>
                                 <span class="text-muted fs-8 d-block mt-1">{{ $ticket->created_at ? $ticket->created_at->diffForHumans() : '-' }}</span>
                             </td>
@@ -514,7 +514,9 @@
                             <!-- Subjek & Kategori Masalah -->
                             <td>
                                 <div class="d-flex flex-column">
-                                    <span class="text-gray-900 fw-bold text-hover-primary fs-6 mb-1">{{ $ticket->subject }}</span>
+                                    <a href="{{ url('/tickets/' . $ticket->id) }}" class="text-gray-900 fw-bold text-hover-primary fs-6 mb-1 text-decoration-none">
+                                        {{ $ticket->subject }}
+                                    </a>
                                     <div class="d-flex flex-wrap gap-1 align-items-center">
                                         <span class="badge badge-light-secondary text-gray-700 fs-8 py-1 px-2 rounded-2">
                                             <i class="ki-duotone ki-category fs-9 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
@@ -649,6 +651,11 @@
                             <!-- Aksi Cepat -->
                             <td class="text-end pe-2">
                                 <div class="d-flex justify-content-end gap-1">
+                                    <!-- View Detail -->
+                                    <a href="{{ url('/tickets/' . $ticket->id) }}" class="btn btn-icon btn-bg-light btn-active-color-primary btn-sm rounded-2" title="Lihat Detail & Chat">
+                                        <i class="ki-duotone ki-eye fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                    </a>
+
                                     <!-- Quick Assign -->
                                     <button type="button" class="btn btn-icon btn-bg-light btn-active-color-primary btn-sm rounded-2 btn-quick-assign" 
                                             data-id="{{ $ticket->id }}" 

@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers\Api\V1\Ticket;
 
+use App\Enums\ApprovalStatus;
 use App\Enums\TicketApprovalStatus;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\Department;
 use App\Models\SlaPolicy;
 use App\Models\Ticket;
 use App\Models\TicketActivity;
+use App\Models\TicketApproval;
 use App\Models\TicketCategory;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -240,6 +245,29 @@ class TicketController extends Controller
             'is_sla_breached' => false,
             'replies_count' => 0,
         ]);
+
+        // Buat Catatan Persetujuan (TicketApproval) jika Kategori Memerlukan Approval
+        if ($requiresApproval) {
+            $dept = $departmentId ? Department::find($departmentId) : null;
+            $approverId = $dept?->lead_user_id
+                ?? User::where('company_id', $finalCompanyId)
+                    ->whereIn('role', [UserRole::CompanyAdmin, UserRole::Superadmin])
+                    ->value('id')
+                ?? 1;
+
+            TicketApproval::create([
+                'ticket_id' => $ticket->id,
+                'approver_id' => $approverId,
+                'status' => ApprovalStatus::Pending,
+            ]);
+
+            TicketActivity::create([
+                'ticket_id' => $ticket->id,
+                'user_id' => (int) $validated['requester_id'],
+                'activity_type' => 'approval_requested',
+                'notes' => 'Tiket membutuhkan persetujuan resmi sebelum dikerjakan.',
+            ]);
+        }
 
         // Rekam Jejak Audit Trail (TicketActivity)
         TicketActivity::create([
