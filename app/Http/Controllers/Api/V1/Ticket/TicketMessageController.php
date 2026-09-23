@@ -67,8 +67,16 @@ class TicketMessageController extends Controller
 
         $isInternalNote = $request->boolean('is_internal_note');
 
+        $authUser = $request->user();
+        if ($authUser && $authUser->isRequester()) {
+            $isInternalNote = false;
+            if (! empty($validated['status']) && in_array($validated['status'], [TicketStatus::Resolved->value, TicketStatus::InProgress->value, TicketStatus::PendingApproval->value], true)) {
+                unset($validated['status']);
+            }
+        }
+
         // Tentukan user pengirim
-        $userId = $request->user()?->id
+        $userId = $authUser?->id
             ?? $request->input('user_id')
             ?? ($isInternalNote ? ($ticket->assigned_to ?? 1) : $ticket->requester_id);
 

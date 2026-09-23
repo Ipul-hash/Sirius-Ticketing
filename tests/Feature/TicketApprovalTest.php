@@ -60,6 +60,8 @@ beforeEach(function () {
         'role' => UserRole::Requester,
         'is_active' => true,
     ]);
+
+    $this->actingAs($this->approver);
 });
 
 test('ticket created with requires_approval category automatically sets status pending_approval and creates TicketApproval', function () {

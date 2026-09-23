@@ -153,6 +153,7 @@
             <form method="GET" action="{{ url('/canned-responses') }}" id="canned_filter_form" class="d-flex flex-wrap align-items-center gap-3">
                 @if(request('search')) <input type="hidden" name="search" value="{{ request('search') }}" /> @endif
 
+                @if(auth()->user()->isSuperadmin())
                 <!-- Filter Perusahaan -->
                 <div class="w-180px">
                     <select name="company_id" id="filter_canned_company_id" class="form-select form-select-solid form-select-sm" onchange="this.form.submit()">
@@ -164,6 +165,7 @@
                         @endforeach
                     </select>
                 </div>
+                @endif
 
                 <!-- Filter Departemen -->
                 <div class="w-200px">

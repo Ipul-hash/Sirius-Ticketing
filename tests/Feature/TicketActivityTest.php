@@ -108,6 +108,8 @@ beforeEach(function () {
         'new_value' => null,
         'notes' => 'Kapasitas RAM dan CPU sedang kami restart.',
     ]);
+
+    $this->actingAs($this->agent);
 });
 
 test('can retrieve ticket activities via api endpoint', function () {

@@ -63,8 +63,8 @@
                        placeholder="Cari No. Tiket / Pemohon..." />
             </div>
 
-            <!-- Tenant Filter (jika multi-tenant) -->
-            @if($companies->count() > 1)
+            <!-- Tenant Filter (Khusus Superadmin) -->
+            @if(auth()->user()->isSuperadmin() && $companies->count() > 1)
                 <select name="company_id" class="form-select form-select-solid form-select-sm w-150px rounded-3" onchange="this.form.submit()">
                     <option value="">Semua Tenant</option>
                     @foreach($companies as $company)

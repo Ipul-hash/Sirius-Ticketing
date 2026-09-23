@@ -165,11 +165,18 @@
 
                 <!-- Body: Value & Label -->
                 <div class="mt-4 mb-2">
-                    <div class="d-flex align-items-baseline">
-                        <span class="fs-2hx fw-bold text-gray-900 me-2 lh-1 ls-n2">{{ $stats['total_companies'] ?? $companies->count() }}</span>
-                        <span class="fs-7 fw-bold text-gray-500 text-uppercase">Perusahaan</span>
-                    </div>
-                    <div class="fw-semibold text-gray-500 fs-7 mt-1">Tenant Organisasi Aktif</div>
+                    @if(auth()->user()->isSuperadmin())
+                        <div class="d-flex align-items-baseline">
+                            <span class="fs-2hx fw-bold text-gray-900 me-2 lh-1 ls-n2">{{ $stats['total_companies'] ?? $companies->count() }}</span>
+                            <span class="fs-7 fw-bold text-gray-500 text-uppercase">Perusahaan</span>
+                        </div>
+                        <div class="fw-semibold text-gray-500 fs-7 mt-1">Tenant Organisasi Aktif</div>
+                    @else
+                        <div class="d-flex align-items-baseline">
+                            <span class="fs-4 fw-bold text-gray-900 text-truncate me-2" style="max-width: 200px;" title="{{ auth()->user()->company?->name }}">{{ auth()->user()->company?->name }}</span>
+                        </div>
+                        <div class="fw-semibold text-gray-500 fs-7 mt-1">Organisasi Tenant Anda</div>
+                    @endif
                 </div>
 
                 <!-- Footer: Micro detail -->
@@ -206,6 +213,7 @@
                     <option value="0">Nonaktif</option>
                 </select>
             </div>
+            @if(auth()->user()->isSuperadmin())
             <!-- Filter Perusahaan (Tenant) -->
             <div class="w-180px">
                 <select id="filter_company" class="form-select form-select-solid" data-control="select2" data-hide-search="true">
@@ -215,6 +223,7 @@
                     @endforeach
                 </select>
             </div>
+            @endif
         </div>
     </div>
 
@@ -323,6 +332,25 @@
 <script>
 $(document).ready(function() {
     const apiBaseUrl = '{{ url("/api/v1/departments") }}';
+
+    // Dynamic Filter Lead User options per Company
+    function filterDepartmentUsers() {
+        const companyId = $('#add_company_id').val();
+        $('#add_lead_user_id option').each(function() {
+            const comp = $(this).data('company');
+            if (!comp || String(comp) === String(companyId)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+        const selected = $('#add_lead_user_id option:selected');
+        if (selected.length && selected.css('display') === 'none') {
+            $('#add_lead_user_id').val('');
+        }
+    }
+    $('#add_company_id').on('change', filterDepartmentUsers);
+    filterDepartmentUsers();
 
     // 1. Submit Tambah Departemen (AJAX ke API)
     $('#form_add_department').on('submit', function(e) {

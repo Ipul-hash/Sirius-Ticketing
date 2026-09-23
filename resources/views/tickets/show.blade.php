@@ -10,6 +10,7 @@
             Kembali ke Antrean
         </a>
 
+        @if(!auth()->user()?->isRequester())
         @if(!$ticket->is_merged)
             <!-- Tombol Gabungkan Tiket (Ticket Merging) -->
             <button type="button" class="btn btn-sm btn-light-primary rounded-3 shadow-xs" data-bs-toggle="modal" data-bs-target="#kt_modal_merge_ticket">
@@ -18,7 +19,8 @@
             </button>
         @endif
 
-        <!-- Tombol Cepat Tugaskan -->
+        @if(auth()->user()?->isSuperadmin() || auth()->user()?->isCompanyAdmin())
+        <!-- Tombol Cepat Tugaskan (Admin) -->
         <button type="button" class="btn btn-sm btn-light-warning rounded-3 shadow-xs btn-quick-assign"
                 data-id="{{ $ticket->id }}"
                 data-number="{{ $ticket->ticket_number }}"
@@ -27,6 +29,30 @@
             <i class="ki-duotone ki-user-square fs-4 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
             {{ $ticket->assigned_to ? 'Ubah Teknisi' : 'Tugaskan Teknisi' }}
         </button>
+        @elseif(auth()->user()?->isAgent())
+            @if(!$ticket->assigned_to)
+            <!-- Tombol Ambil Tiket (Agent) -->
+            <button type="button" class="btn btn-sm btn-light-success rounded-3 shadow-xs btn-claim-ticket"
+                    data-id="{{ $ticket->id }}"
+                    data-number="{{ $ticket->ticket_number }}"
+                    data-subject="{{ $ticket->subject }}"
+                    data-status="{{ $ticket->status->value ?? $ticket->status }}"
+                    data-approval-status="{{ $ticket->approval_status->value ?? $ticket->approval_status }}">
+                <i class="ki-duotone ki-check-circle fs-4 me-1 text-success"><span class="path1"></span><span class="path2"></span></i>
+                Ambil Tiket
+            </button>
+            @elseif($ticket->assigned_to === auth()->id())
+            <span class="badge badge-light-success py-2 px-3 fs-7 fw-semibold rounded-3 d-inline-flex align-items-center">
+                <i class="ki-duotone ki-check-circle fs-5 text-success me-1"><span class="path1"></span><span class="path2"></span></i>
+                Ditangani Anda
+            </span>
+            @else
+            <span class="badge badge-light-secondary py-2 px-3 fs-7 fw-semibold rounded-3 d-inline-flex align-items-center">
+                <i class="ki-duotone ki-user fs-5 text-gray-500 me-1"><span class="path1"></span><span class="path2"></span></i>
+                Ditangani Teknisi Lain
+            </span>
+            @endif
+        @endif
 
         <!-- Tombol Cepat Ubah Status -->
         <button type="button" class="btn btn-sm btn-light-info rounded-3 shadow-xs btn-quick-status"
@@ -37,6 +63,7 @@
             <i class="ki-duotone ki-arrows-circle fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
             Ubah Status
         </button>
+        @endif
     </div>
 @endsection
 
@@ -302,6 +329,7 @@
 
             @forelse($ticket->messages as $msg)
                 @if($msg->is_internal_note)
+                    @if(!auth()->user()?->isRequester())
                     <!-- BUBBLE CATATAN INTERNAL KHUSUS TEKNISI (ZENDESK YELLOW NOTE) -->
                     <div class="card card-flush bg-light-warning shadow-xs rounded-4 p-5 border border-warning border-dashed">
                         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -346,6 +374,7 @@
                             </div>
                         @endif
                     </div>
+                    @endif
                 @else
                     <!-- BUBBLE BALASAN PUBLIK (AGEN / PELAPOR) -->
                     @php
@@ -451,14 +480,16 @@
                                         <i class="ki-duotone ki-messages fs-6 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
                                         Balasan Publik (Ke Pemohon)
                                     </button>
+                                    @if(!auth()->user()?->isRequester())
                                     <button type="button" class="btn btn-sm btn-color-gray-600 btn-active-warning py-2 px-3 fw-bold fs-8 rounded-2" id="tab_internal_note">
                                         <i class="ki-duotone ki-lock fs-6 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                                         Catatan Internal (Rahasia)
                                     </button>
+                                    @endif
                                 </div>
 
                                 <!-- Macro / Canned Response Picker -->
-                                @if($cannedResponses->isNotEmpty())
+                                @if(!auth()->user()?->isRequester() && $cannedResponses->isNotEmpty())
                                     <div class="d-flex align-items-center">
                                         <select id="select_canned_macro" class="form-select form-select-sm form-select-solid fs-8 rounded-3 w-225px">
                                             <option value="">⚡ Sisipkan Canned Response...</option>
@@ -503,6 +534,7 @@
                                 </div>
 
                                 <div class="d-flex align-items-center gap-2">
+                                    @if(!auth()->user()?->isRequester())
                                     <!-- Ubah Status Shortcut -->
                                     <select id="reply_status_shortcut" name="status" class="form-select form-select-sm form-select-solid w-175px fs-8 rounded-3">
                                         <option value="">Status Tetap ({{ ucfirst($sVal) }})</option>
@@ -510,6 +542,7 @@
                                         <option value="pending_user">Ubah ke Pending User</option>
                                         <option value="resolved">Ubah ke Resolved (Selesai)</option>
                                     </select>
+                                    @endif
 
                                     <!-- Submit Button -->
                                     <button type="submit" id="btn_submit_reply" class="btn btn-sm btn-primary rounded-3 py-2 px-4 shadow-sm">
@@ -817,15 +850,17 @@
                     <div class="mb-4 pb-3 border-bottom border-gray-200">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <span class="text-muted fs-8 fw-semibold text-uppercase ls-1">Teknisi (Assigned Agent)</span>
-                            <button type="button" class="btn btn-link btn-color-primary p-0 fs-8 fw-bold btn-quick-assign"
-                                    data-id="{{ $ticket->id }}"
-                                    data-number="{{ $ticket->ticket_number }}"
-                                    data-subject="{{ $ticket->subject }}"
-                                    data-company="{{ $ticket->company_id }}"
-                                    data-status="{{ $ticket->status->value }}"
-                                    data-approval-status="{{ $ticket->approval_status->value }}">
-                                Ubah
-                            </button>
+                            @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+                                <button type="button" class="btn btn-link btn-color-primary p-0 fs-8 fw-bold btn-quick-assign"
+                                        data-id="{{ $ticket->id }}"
+                                        data-number="{{ $ticket->ticket_number }}"
+                                        data-subject="{{ $ticket->subject }}"
+                                        data-company="{{ $ticket->company_id }}"
+                                        data-status="{{ $ticket->status->value }}"
+                                        data-approval-status="{{ $ticket->approval_status->value }}">
+                                    Ubah
+                                </button>
+                            @endif
                         </div>
                         @if($ticket->assignedAgent)
                             <div class="d-flex align-items-center p-2 rounded-3 bg-light">
@@ -842,15 +877,27 @@
                         @else
                             <div class="d-flex align-items-center justify-content-between p-3 rounded-3 bg-light-warning border border-warning border-dashed">
                                 <span class="fs-8 text-warning fw-semibold">Belum ada teknisi yang ditugaskan.</span>
-                                <button type="button" class="btn btn-xs btn-warning fw-bold py-1 px-2 btn-quick-assign"
-                                        data-id="{{ $ticket->id }}"
-                                        data-number="{{ $ticket->ticket_number }}"
-                                        data-subject="{{ $ticket->subject }}"
-                                        data-company="{{ $ticket->company_id }}"
-                                        data-status="{{ $ticket->status->value }}"
-                                        data-approval-status="{{ $ticket->approval_status->value }}">
-                                    Tugaskan
-                                </button>
+                                @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+                                    <button type="button" class="btn btn-xs btn-warning fw-bold py-1 px-2 btn-quick-assign"
+                                            data-id="{{ $ticket->id }}"
+                                            data-number="{{ $ticket->ticket_number }}"
+                                            data-subject="{{ $ticket->subject }}"
+                                            data-company="{{ $ticket->company_id }}"
+                                            data-status="{{ $ticket->status->value }}"
+                                            data-approval-status="{{ $ticket->approval_status->value }}">
+                                        Tugaskan
+                                    </button>
+                                @elseif(auth()->user()?->isAgent())
+                                    <button type="button" class="btn btn-xs btn-success fw-bold py-1 px-3 btn-claim-ticket"
+                                            data-id="{{ $ticket->id }}"
+                                            data-number="{{ $ticket->ticket_number }}"
+                                            data-subject="{{ $ticket->subject }}"
+                                            data-status="{{ $ticket->status->value }}"
+                                            data-approval-status="{{ $ticket->approval_status->value }}">
+                                        <i class="ki-duotone ki-check-circle fs-7 me-1 text-white"><span class="path1"></span><span class="path2"></span></i>
+                                        Ambil Tiket
+                                    </button>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -995,10 +1042,14 @@
 </div>
 
 <!-- Modal Quick Actions -->
-@include('tickets._modal_assign', ['users' => $users])
-@include('tickets._modal_status')
+@if(!auth()->user()?->isRequester())
+    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+        @include('tickets._modal_assign', ['users' => $users])
+        @include('tickets._modal_merge')
+    @endif
+    @include('tickets._modal_status')
+@endif
 @include('tickets._modal_approval')
-@include('tickets._modal_merge')
 @endsection
 
 @push('scripts')
@@ -1108,10 +1159,12 @@ document.addEventListener('DOMContentLoaded', function () {
         formReply.addEventListener('submit', function (e) {
             e.preventDefault();
 
-            const ticketId = document.getElementById('reply_ticket_id').value;
-            const message = replyTextarea.value.trim();
-            const isInternal = isInternalInput.value;
-            const newStatus = document.getElementById('reply_status_shortcut').value;
+            const ticketIdEl = document.getElementById('reply_ticket_id');
+            const ticketId = ticketIdEl ? ticketIdEl.value : '{{ $ticket->id }}';
+            const message = replyTextarea ? replyTextarea.value.trim() : '';
+            const isInternal = isInternalInput ? isInternalInput.value : '0';
+            const statusShortcutEl = document.getElementById('reply_status_shortcut');
+            const newStatus = statusShortcutEl ? statusShortcutEl.value : '';
 
             if (!message) {
                 Swal.fire('Validasi', 'Silakan isi pesan balasan atau catatan internal.', 'warning');
@@ -1125,14 +1178,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 formData.append('status', newStatus);
             }
 
-            if (inputFiles.files.length > 0) {
+            if (inputFiles && inputFiles.files && inputFiles.files.length > 0) {
                 for (let i = 0; i < inputFiles.files.length; i++) {
                     formData.append('attachments[]', inputFiles.files[i]);
                 }
             }
 
-            btnSubmit.setAttribute('data-kt-indicator', 'on');
-            btnSubmit.disabled = true;
+            if (btnSubmit) {
+                btnSubmit.setAttribute('data-kt-indicator', 'on');
+                btnSubmit.disabled = true;
+            }
 
             fetch(`/api/v1/tickets/${ticketId}/messages`, {
                 method: 'POST',
@@ -1159,14 +1214,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire('Gagal Mengirim', err.message || 'Terjadi kesalahan sistem saat mengirim pesan.', 'error');
             })
             .finally(() => {
-                btnSubmit.removeAttribute('data-kt-indicator');
-                btnSubmit.disabled = false;
+                if (btnSubmit) {
+                    btnSubmit.removeAttribute('data-kt-indicator');
+                    btnSubmit.disabled = false;
+                }
             });
         });
     }
 
+    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
     // -------------------------------------------------------------
-    // Quick Assign Handler
+    // Quick Assign Handler (Admin / Superadmin)
     // -------------------------------------------------------------
     const assignModalEl = document.getElementById('kt_modal_assign_ticket');
     const assignModal = assignModalEl ? new bootstrap.Modal(assignModalEl) : null;
@@ -1270,7 +1328,100 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+    @endif
 
+    @if(auth()->user()?->isAgent())
+    // -------------------------------------------------------------
+    // Claim Ticket Handler (Khusus Agent)
+    // -------------------------------------------------------------
+    document.querySelectorAll('.btn-claim-ticket').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const id = this.getAttribute('data-id');
+            const number = this.getAttribute('data-number');
+            const status = this.getAttribute('data-status');
+            const approvalStatus = this.getAttribute('data-approval-status');
+
+            if (status === 'pending_approval' || approvalStatus === 'pending') {
+                Swal.fire({
+                    title: 'Persetujuan Diperlukan!',
+                    html: `Tiket <strong>"${number}"</strong> saat ini masih berstatus <strong>Pending Approval</strong>.<br><br>Mohon tunggu persetujuan dari atasan atau approver terkait terlebih dahulu sebelum tiket dapat diambil.`,
+                    icon: 'warning',
+                    confirmButtonText: 'Mengerti',
+                    customClass: { confirmButton: 'btn btn-warning' }
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Ambil Tiket Ini?',
+                html: `Apakah Anda yakin ingin mengambil tiket <strong>"${number}"</strong> untuk Anda tangani sendiri?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '<i class="ki-duotone ki-check fs-6 me-1"><span class="path1"></span><span class="path2"></span></i> Ya, Ambil Tiket',
+                cancelButtonText: 'Batal',
+                customClass: {
+                    confirmButton: 'btn btn-success',
+                    cancelButton: 'btn btn-light'
+                }
+            }).then(result => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Memproses...',
+                        text: 'Sedang menugaskan tiket ke akun Anda',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    fetch(`/api/v1/tickets/${id}/assign`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({
+                            assigned_to: {{ auth()->id() }},
+                            notes: 'Tiket diambil mandiri oleh teknisi.'
+                        })
+                    })
+                    .then(res => res.json().then(data => ({ status: res.status, body: data })))
+                    .then(({ status, body }) => {
+                        if (status === 200 && body.success) {
+                            Swal.fire({
+                                title: 'Berhasil!',
+                                text: body.message || 'Tiket berhasil diambil dan ditugaskan kepada Anda.',
+                                icon: 'success',
+                                confirmButtonText: 'OK',
+                                customClass: { confirmButton: 'btn btn-primary' }
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Gagal Mengambil Tiket',
+                                text: body.message || 'Terjadi kesalahan sistem saat mengambil tiket.',
+                                icon: 'error',
+                                confirmButtonText: 'Tutup',
+                                customClass: { confirmButton: 'btn btn-danger' }
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire({
+                            title: 'Error Jaringan',
+                            text: 'Gagal menghubungi server.',
+                            icon: 'error',
+                            confirmButtonText: 'Tutup',
+                            customClass: { confirmButton: 'btn btn-danger' }
+                        });
+                    });
+                }
+            });
+        });
+    });
+    @endif
+
+    @if(!auth()->user()?->isRequester())
     // -------------------------------------------------------------
     // Quick Status Handler
     // -------------------------------------------------------------
@@ -1365,6 +1516,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+    @endif
 
     // -------------------------------------------------------------
     // Ticket Approval Actions (Approve & Reject)

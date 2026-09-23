@@ -11,19 +11,29 @@
 
             <form id="form_add_canned" class="form" novalidate>
                 <div class="modal-body py-10 px-lg-17">
-                    <!-- Perusahaan / Tenant Selection -->
-                    <div class="fv-row mb-7">
-                        <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
-                        <select id="add_canned_company_id" class="form-select form-select-solid" required>
-                            <option value="">-- Pilih Perusahaan --</option>
-                            @foreach($companies as $company)
-                                <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
-                                    {{ $company->name }} ({{ $company->slug }})
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="text-muted fs-8 mt-1">Template akan tersedia bagi teknisi di perusahaan ini.</div>
-                    </div>
+                    @if(auth()->user()->isSuperadmin())
+                        <!-- Perusahaan / Tenant Selection -->
+                        <div class="fv-row mb-7">
+                            <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <select id="add_canned_company_id" class="form-select form-select-solid" required>
+                                <option value="">-- Pilih Perusahaan --</option>
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
+                                        {{ $company->name }} ({{ $company->slug }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="text-muted fs-8 mt-1">Template akan tersedia bagi teknisi di perusahaan ini.</div>
+                        </div>
+                    @else
+                        <!-- Perusahaan / Tenant (Terkunci Otomatis) -->
+                        <input type="hidden" id="add_canned_company_id" value="{{ auth()->user()->company_id }}" />
+                        <div class="fv-row mb-7">
+                            <label class="fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <input type="text" class="form-control form-control-solid bg-light" value="{{ auth()->user()->company?->name }}" readonly disabled />
+                            <div class="text-muted fs-8 mt-1">Template otomatis terdaftar di bawah perusahaan Anda.</div>
+                        </div>
+                    @endif
 
                     <!-- Departemen (Opsional / Global) -->
                     <div class="fv-row mb-7">

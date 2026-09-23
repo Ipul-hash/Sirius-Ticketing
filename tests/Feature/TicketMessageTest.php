@@ -74,6 +74,8 @@ beforeEach(function () {
         'first_response_due_at' => now()->addHours(2),
         'resolution_due_at' => now()->addHours(8),
     ]);
+
+    $this->actingAs($this->agent);
 });
 
 test('can retrieve ticket messages thread via api', function () {
@@ -163,4 +165,26 @@ test('ticket detail blade page renders successfully', function () {
     $response->assertStatus(200)
         ->assertSee($this->ticket->ticket_number)
         ->assertSee($this->ticket->subject);
+});
+
+test('requester sending message succeeds and cannot force status to resolved', function () {
+    $this->ticket->update(['status' => TicketStatus::Open]);
+
+    $response = $this->actingAs($this->requester)
+        ->postJson("/api/v1/tickets/{$this->ticket->id}/messages", [
+            'message' => 'Halo ini respon dari pemohon tiket',
+            'status' => TicketStatus::Resolved->value,
+            'is_internal_note' => true,
+        ]);
+
+    $response->assertCreated();
+
+    $this->assertDatabaseHas('ticket_messages', [
+        'ticket_id' => $this->ticket->id,
+        'user_id' => $this->requester->id,
+        'message' => 'Halo ini respon dari pemohon tiket',
+        'is_internal_note' => false,
+    ]);
+
+    expect($this->ticket->fresh()->status)->toBe(TicketStatus::Open);
 });

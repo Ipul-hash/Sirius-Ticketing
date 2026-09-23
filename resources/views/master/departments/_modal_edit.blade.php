@@ -38,7 +38,7 @@
                         <select class="form-select form-select-solid" name="lead_user_id" id="edit_lead_user_id">
                             <option value="">-- Pilih User Lead (Opsional) --</option>
                             @foreach($users as $user)
-                                <option value="{{ $user->id }}">
+                                <option value="{{ $user->id }}" data-company="{{ $user->company_id }}">
                                     {{ $user->name }} ({{ $user->email }}) - {{ $user->job_title ?? 'Staf' }}
                                 </option>
                             @endforeach

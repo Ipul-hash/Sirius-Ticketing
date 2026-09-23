@@ -1,3 +1,24 @@
+@php
+    $headerUser = auth()->user();
+    $hRoleVal = $headerUser?->role?->value ?? 'company_admin';
+    $hRoleColor = match($hRoleVal) {
+        'superadmin' => 'danger',
+        'company_admin' => 'primary',
+        'agent' => 'info',
+        'requester' => 'success',
+        default => 'secondary',
+    };
+    $hRoleLabel = match($hRoleVal) {
+        'superadmin' => 'Superadmin',
+        'company_admin' => 'Company Admin',
+        'agent' => 'Teknisi IT',
+        'requester' => 'Requester (User)',
+        default => ucfirst($hRoleVal),
+    };
+    $hInitials = strtoupper(substr($headerUser?->name ?? 'User', 0, 2));
+    $tenantName = $headerUser?->company?->name ?? 'Sirius Global Tech';
+@endphp
+
 <div id="kt_app_header" class="app-header" data-kt-sticky="true" data-kt-sticky-activate="{default: true, lg: true}" data-kt-sticky-name="app-header-minimize" data-kt-sticky-offset="{default: '200px', lg: '0'}" data-kt-sticky-animation="false">
     <div class="app-container container-fluid d-flex align-items-stretch justify-content-between" id="kt_app_header_container">
         <!-- Mobile sidebar toggle -->
@@ -15,7 +36,6 @@
             </a>
         </div>
 
-
         <!-- Header Navbar -->
         <div class="d-flex align-items-stretch justify-content-between flex-lg-grow-1" id="kt_app_header_wrapper">
             <div class="app-header-menu app-header-mobile-drawer align-items-stretch">
@@ -23,7 +43,10 @@
                 <div class="d-flex align-items-center">
                     <span class="badge badge-light-primary fs-7 fw-bold me-2 px-3 py-2">
                         <i class="ki-duotone ki-shop fs-6 me-1 text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
-                        Tenant: Sirius Global Tech
+                        Tenant: {{ $tenantName }}
+                    </span>
+                    <span class="badge badge-light-{{ $hRoleColor }} fs-8 fw-bold px-2 py-1 d-none d-md-inline-block">
+                        Mode: {{ $hRoleLabel }}
                     </span>
                 </div>
             </div>
@@ -72,33 +95,66 @@
                 <!-- User menu (Bootstrap 5 Dropdown) -->
                 <div class="app-navbar-item ms-1 ms-md-4 dropdown" id="kt_header_user_menu_toggle">
                     <div class="cursor-pointer symbol symbol-35px" data-bs-toggle="dropdown" aria-expanded="false">
-                        <img src="{{ asset('assets/media/avatars/300-1.jpg') }}" alt="user" onerror="this.src='https://ui-avatars.com/api/?name=Admin+Andi&background=0D8ABC&color=fff'" />
+                        @if($headerUser?->avatar_path)
+                            <img src="{{ asset('storage/' . $headerUser->avatar_path) }}" alt="{{ $headerUser->name }}" />
+                        @else
+                            <div class="symbol-label bg-light-{{ $hRoleColor }} text-{{ $hRoleColor }} fw-bolder fs-7">
+                                {{ $hInitials }}
+                            </div>
+                        @endif
                     </div>
                     <!-- User dropdown menu -->
-                    <div class="dropdown-menu dropdown-menu-end menu menu-sub menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-color fw-semibold py-4 fs-6 w-275px shadow-sm">
+                    <div class="dropdown-menu dropdown-menu-end menu menu-sub menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-color fw-semibold py-4 fs-6 w-300px shadow-sm">
+                        <!-- Profil Singkat Pengguna -->
                         <div class="menu-item px-3">
                             <div class="menu-content d-flex align-items-center px-3">
-                                <div class="symbol symbol-50px me-5">
-                                    <img alt="Logo" src="{{ asset('assets/media/avatars/300-1.jpg') }}" onerror="this.src='https://ui-avatars.com/api/?name=Admin+Andi&background=0D8ABC&color=fff'" />
-                                </div>
-                                <div class="d-flex flex-column">
-                                    <div class="fw-bold d-flex align-items-center fs-5">Andi Wijaya
-                                        <span class="badge badge-light-success fw-bold fs-8 px-2 py-1 ms-2">Admin</span>
+                                <div class="symbol symbol-45px symbol-circle me-4">
+                                    <div class="symbol-label bg-light-{{ $hRoleColor }} text-{{ $hRoleColor }} fw-bolder fs-6">
+                                        {{ $hInitials }}
                                     </div>
-                                    <a href="#" class="fw-semibold text-muted text-hover-primary fs-7">admin@sirius-tech.com</a>
+                                </div>
+                                <div class="d-flex flex-column overflow-hidden">
+                                    <div class="fw-bolder text-gray-900 fs-7 text-truncate">
+                                        {{ $headerUser?->name ?? 'User' }}
+                                    </div>
+                                    <span class="text-muted fs-8 text-truncate mb-1">{{ $headerUser?->email ?? '-' }}</span>
+                                    <div>
+                                        <span class="badge badge-light-{{ $hRoleColor }} fw-bold fs-9 px-2 py-0">
+                                            {{ $hRoleLabel }}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
                         <div class="separator my-2"></div>
-                        <div class="menu-item px-5">
-                            <a href="#" class="menu-link px-5">Profil Saya</a>
+
+                        <!-- Menu Navigasi Pengguna -->
+                        <div class="menu-item px-3 my-0">
+                            <a href="{{ url('/') }}" class="menu-link px-3 py-2 rounded-2">
+                                <i class="ki-duotone ki-element-11 fs-5 me-2 text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
+                                <span class="fs-8">Dashboard Utama</span>
+                            </a>
                         </div>
-                        <div class="menu-item px-5">
-                            <a href="#" class="menu-link px-5">Pengaturan Tenant</a>
+
+                        <div class="menu-item px-3 my-0">
+                            <a href="{{ url('/tickets') }}" class="menu-link px-3 py-2 rounded-2">
+                                <i class="ki-duotone ki-tablet-text-down fs-5 me-2 text-info"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
+                                <span class="fs-8">Antrean Tiket</span>
+                            </a>
                         </div>
+
                         <div class="separator my-2"></div>
-                        <div class="menu-item px-5">
-                            <a href="{{ url('/') }}" class="menu-link px-5 text-danger">Keluar</a>
+
+                        <!-- Keluar / Logout -->
+                        <div class="menu-item px-3">
+                            <form action="{{ route('logout') }}" method="POST" id="logout-form">
+                                @csrf
+                                <button type="submit" class="menu-link px-3 py-2 rounded-2 text-danger w-100 bg-transparent border-0 text-start d-flex align-items-center">
+                                    <i class="ki-duotone ki-entrance-right fs-4 me-2 text-danger"><span class="path1"></span><span class="path2"></span></i>
+                                    <span class="fs-8 fw-bold">Keluar (Sign Out)</span>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>

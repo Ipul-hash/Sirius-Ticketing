@@ -11,18 +11,27 @@
 
             <form id="form_create_ticket" class="form" novalidate>
                 <div class="modal-body py-10 px-lg-17">
-                    <!-- Tenant Selection -->
-                    <div class="fv-row mb-7">
-                        <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
-                        <select id="create_ticket_company_id" class="form-select form-select-solid" required>
-                            <option value="">-- Pilih Perusahaan --</option>
-                            @foreach($companies as $company)
-                                <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
-                                    {{ $company->name }} ({{ $company->slug }})
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                    @if(auth()->user()->isSuperadmin())
+                        <!-- Tenant Selection -->
+                        <div class="fv-row mb-7">
+                            <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <select id="create_ticket_company_id" class="form-select form-select-solid" required>
+                                <option value="">-- Pilih Perusahaan --</option>
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
+                                        {{ $company->name }} ({{ $company->slug }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @else
+                        <!-- Tenant (Terkunci Otomatis) -->
+                        <input type="hidden" id="create_ticket_company_id" value="{{ auth()->user()->company_id }}" />
+                        <div class="fv-row mb-7">
+                            <label class="fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <input type="text" class="form-control form-control-solid bg-light" value="{{ auth()->user()->company?->name }}" readonly disabled />
+                        </div>
+                    @endif
 
                     <div class="row g-9 mb-7">
                         <!-- Kategori Tiket -->
@@ -71,17 +80,27 @@
                         </div>
 
                         <!-- Pelapor (Requester) -->
-                        <div class="col-md-6 fv-row">
-                            <label class="required fs-6 fw-semibold mb-2">Pelapor (Requester)</label>
-                            <select id="create_ticket_requester_id" class="form-select form-select-solid" required>
-                                <option value="">-- Pilih Pelapor --</option>
-                                @foreach($users as $user)
-                                    <option value="{{ $user->id }}" data-company="{{ $user->company_id }}">
-                                        {{ $user->name }} ({{ $user->email }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
+                        @if(auth()->user()->isRequester())
+                            <input type="hidden" id="create_ticket_requester_id" value="{{ auth()->id() }}" />
+                            <div class="col-md-6 fv-row">
+                                <label class="fs-6 fw-semibold mb-2">Pelapor (Requester)</label>
+                                <input type="text" class="form-control form-control-solid bg-light" value="{{ auth()->user()->name }} ({{ auth()->user()->email }})" readonly disabled />
+                                <div class="text-muted fs-8 mt-1">Otomatis menggunakan akun Anda yang sedang login.</div>
+                            </div>
+                        @else
+                            <div class="col-md-6 fv-row">
+                                <label class="required fs-6 fw-semibold mb-2">Pelapor (Requester)</label>
+                                <select id="create_ticket_requester_id" class="form-select form-select-solid" required>
+                                    <option value="">-- Pilih Pelapor --</option>
+                                    @foreach($users as $user)
+                                        <option value="{{ $user->id }}" data-company="{{ $user->company_id }}" {{ auth()->id() === $user->id ? 'selected' : '' }}>
+                                            {{ $user->name }} ({{ $user->email }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="text-muted fs-8 mt-1">Pilih pengguna yang mengajukan tiket ini.</div>
+                            </div>
+                        @endif
                     </div>
 
                     <!-- Penautan Aset CMDB (Opsional) -->
@@ -110,21 +129,35 @@
                         <textarea class="form-control form-control-solid" id="create_ticket_description" rows="5" placeholder="Jelaskan secara detail kronologi masalah, error yang muncul, atau permohonan yang diajukan..." required></textarea>
                     </div>
 
-                    <!-- Penugasan Awal Teknisi (Opsional) -->
-                    <div class="fv-row mb-7">
-                        <label class="fs-6 fw-semibold mb-2">Tugaskan Teknisi (Opsional)</label>
-                        <select id="create_ticket_assigned_to" class="form-select form-select-solid">
-                            <option value="">-- Biarkan Masuk Antrean (Unassigned) --</option>
-                            @foreach($users as $user)
-                                @if(in_array($user->role->value ?? $user->role, ['agent', 'company_admin', 'superadmin']))
-                                    <option value="{{ $user->id }}" data-company="{{ $user->company_id }}">
-                                        {{ $user->name }} - {{ $user->job_title ?? 'Teknisi' }} ({{ $user->email }})
-                                    </option>
-                                @endif
-                            @endforeach
-                        </select>
-                        <div class="text-muted fs-8 mt-1">Bila dikosongkan, tiket akan masuk ke antrean "Unassigned".</div>
-                    </div>
+                    @if(auth()->user()->isCompanyAdmin() || auth()->user()->isSuperadmin())
+                        <!-- Penugasan Awal Teknisi (Admin) -->
+                        <div class="fv-row mb-7">
+                            <label class="fs-6 fw-semibold mb-2">Tugaskan Teknisi (Opsional)</label>
+                            <select id="create_ticket_assigned_to" class="form-select form-select-solid">
+                                <option value="">-- Biarkan Masuk Antrean (Unassigned) --</option>
+                                @foreach($users as $user)
+                                    @if(in_array($user->role->value ?? $user->role, ['agent', 'company_admin', 'superadmin']))
+                                        <option value="{{ $user->id }}" data-company="{{ $user->company_id }}">
+                                            {{ $user->name }} - {{ $user->job_title ?? 'Teknisi' }} ({{ $user->email }})
+                                        </option>
+                                    @endif
+                                @endforeach
+                            </select>
+                            <div class="text-muted fs-8 mt-1">Bila dikosongkan, tiket akan masuk ke antrean "Unassigned".</div>
+                        </div>
+                    @elseif(auth()->user()->isAgent())
+                        <!-- Penugasan Awal Teknisi (Agent) -->
+                        <div class="fv-row mb-7">
+                            <label class="fs-6 fw-semibold mb-2">Penugasan Penanganan Tiket</label>
+                            <select id="create_ticket_assigned_to" class="form-select form-select-solid">
+                                <option value="">-- Biarkan Masuk Antrean (Unassigned) --</option>
+                                <option value="{{ auth()->id() }}" selected>{{ auth()->user()->name }} (Tangani Sendiri)</option>
+                            </select>
+                            <div class="text-muted fs-8 mt-1">Sebagai Agent/Teknisi, Anda dapat langsung menangani tiket ini atau membiarkannya di antrean umum.</div>
+                        </div>
+                    @else
+                        <input type="hidden" id="create_ticket_assigned_to" value="" />
+                    @endif
                 </div>
 
                 <div class="modal-footer flex-center">

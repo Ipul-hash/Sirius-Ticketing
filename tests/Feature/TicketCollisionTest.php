@@ -81,6 +81,8 @@ beforeEach(function () {
         'priority' => TicketPriority::Medium,
         'status' => TicketStatus::Open,
     ]);
+
+    $this->actingAs($this->agent1);
 });
 
 test('can send heartbeat ping and store presence in ticket_collisions', function () {

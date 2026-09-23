@@ -93,6 +93,8 @@ beforeEach(function () {
         'status' => TicketStatus::Open,
         'is_merged' => false,
     ]);
+
+    $this->actingAs($this->agent);
 });
 
 test('can fetch candidate target tickets in the same tenant', function () {

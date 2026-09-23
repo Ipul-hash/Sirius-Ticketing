@@ -87,14 +87,23 @@ class TicketActivityController extends Controller
      */
     protected function resolveCompanyId(Request $request, ?string $tenant = null): ?int
     {
-        if ($tenant !== null) {
-            $company = Company::where('slug', $tenant)->first();
+        $user = $request->user();
+        if ($user !== null && ! $user->isSuperadmin() && $user->company_id !== null) {
+            return (int) $user->company_id;
+        }
+
+        if ($tenant !== null && $tenant !== '') {
+            $company = Company::where('slug', $tenant)->orWhere('id', $tenant)->first();
 
             return $company?->id;
         }
 
         if ($request->filled('company_id')) {
             return (int) $request->company_id;
+        }
+
+        if ($user !== null && $user->company_id !== null) {
+            return (int) $user->company_id;
         }
 
         return null;

@@ -157,6 +157,7 @@
 
         <!-- Filter Toolbar (Single Clean Row) -->
         <div class="card-toolbar d-flex align-items-center gap-3">
+            @if(auth()->user()->isSuperadmin())
             <!-- Filter Tenant -->
             <div class="w-180px">
                 <select id="filter_company" class="form-select form-select-solid" data-control="select2" data-hide-search="true">
@@ -166,6 +167,7 @@
                     @endforeach
                 </select>
             </div>
+            @endif
             <!-- Filter Kategori -->
             <div class="w-140px">
                 <select id="filter_category" class="form-select form-select-solid" data-control="select2" data-hide-search="true">

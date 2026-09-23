@@ -11,19 +11,29 @@
 
             <form id="form_add_category" class="form" novalidate>
                 <div class="modal-body py-10 px-lg-17">
-                    <!-- Perusahaan / Tenant Selection -->
-                    <div class="fv-row mb-7">
-                        <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
-                        <select id="add_category_company_id" class="form-select form-select-solid" required>
-                            <option value="">-- Pilih Perusahaan --</option>
-                            @foreach($companies as $company)
-                                <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
-                                    {{ $company->name }} ({{ $company->slug }})
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="text-muted fs-8 mt-1">Kategori tiket terikat pada lingkup perusahaan ini.</div>
-                    </div>
+                    @if(auth()->user()->isSuperadmin())
+                        <!-- Perusahaan / Tenant Selection -->
+                        <div class="fv-row mb-7">
+                            <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <select id="add_category_company_id" class="form-select form-select-solid" required>
+                                <option value="">-- Pilih Perusahaan --</option>
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
+                                        {{ $company->name }} ({{ $company->slug }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="text-muted fs-8 mt-1">Kategori tiket terikat pada lingkup perusahaan ini.</div>
+                        </div>
+                    @else
+                        <!-- Perusahaan / Tenant (Terkunci Otomatis) -->
+                        <input type="hidden" id="add_category_company_id" value="{{ auth()->user()->company_id }}" />
+                        <div class="fv-row mb-7">
+                            <label class="fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <input type="text" class="form-control form-control-solid bg-light" value="{{ auth()->user()->company?->name }}" readonly disabled />
+                            <div class="text-muted fs-8 mt-1">Kategori tiket otomatis terdaftar di bawah perusahaan Anda.</div>
+                        </div>
+                    @endif
 
                     <!-- Departemen Penanggung Jawab -->
                     <div class="fv-row mb-7">

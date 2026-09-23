@@ -4,17 +4,27 @@
 @section('page_title', 'Kebijakan SLA')
 
 @section('toolbar_actions')
-    <!-- Tenant Switcher Dropdown -->
-    <div class="d-flex align-items-center gap-2">
-        <label class="fs-7 fw-bold text-gray-700 text-nowrap d-none d-sm-inline">Konfigurasi Tenant:</label>
-        <select id="sla_tenant_switcher" class="form-select form-select-solid form-select-sm w-200px" data-control="select2" data-hide-search="true">
-            @foreach($companies as $comp)
-                <option value="{{ $comp->id }}" {{ $selectedCompany?->id == $comp->id ? 'selected' : '' }}>
-                    {{ $comp->name }}
-                </option>
-            @endforeach
-        </select>
-    </div>
+    @if(auth()->user()->isSuperadmin())
+        <!-- Tenant Switcher Dropdown (Superadmin Universal Access) -->
+        <div class="d-flex align-items-center gap-2">
+            <label class="fs-7 fw-bold text-gray-700 text-nowrap d-none d-sm-inline">Konfigurasi Tenant:</label>
+            <select id="sla_tenant_switcher" class="form-select form-select-solid form-select-sm w-200px" data-control="select2" data-hide-search="true">
+                @foreach($companies as $comp)
+                    <option value="{{ $comp->id }}" {{ $selectedCompany?->id == $comp->id ? 'selected' : '' }}>
+                        {{ $comp->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    @else
+        <!-- Tenant Badge (Locked to Authenticated Company) -->
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge badge-light-primary fw-bold fs-7 py-2 px-3">
+                <i class="ki-duotone ki-shop fs-6 text-primary me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
+                {{ $selectedCompany?->name }}
+            </span>
+        </div>
+    @endif
 @endsection
 
 @section('content')

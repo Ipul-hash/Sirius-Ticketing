@@ -271,24 +271,38 @@
                                             </span>
                                             <span class="fw-bold text-gray-900 fs-8">{{ $crit->ticket_number }}</span>
                                         </div>
-                                        @if(!$crit->assigned_to)
-                                            <button type="button" class="btn btn-xs btn-warning py-1 px-2 fw-bold fs-9 rounded-2 btn-quick-assign"
-                                                    data-id="{{ $crit->id }}"
-                                                    data-number="{{ $crit->ticket_number }}"
-                                                    data-subject="{{ $crit->subject }}"
-                                                    data-company="{{ $crit->company_id }}"
-                                                    title="Tugaskan Teknisi">
-                                                Tugaskan
-                                            </button>
-                                        @else
-                                            <button type="button" class="btn btn-xs btn-danger py-1 px-2 fw-bold fs-9 rounded-2 btn-quick-status"
-                                                    data-id="{{ $crit->id }}"
-                                                    data-number="{{ $crit->ticket_number }}"
-                                                    data-subject="{{ $crit->subject }}"
-                                                    data-status="{{ $crit->status->value ?? $crit->status }}"
-                                                    title="Perbarui Status">
-                                                Tangani
-                                            </button>
+                                        @if(!auth()->user()?->isRequester())
+                                            @if(!$crit->assigned_to)
+                                                @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+                                                    <button type="button" class="btn btn-xs btn-warning py-1 px-2 fw-bold fs-9 rounded-2 btn-quick-assign"
+                                                            data-id="{{ $crit->id }}"
+                                                            data-number="{{ $crit->ticket_number }}"
+                                                            data-subject="{{ $crit->subject }}"
+                                                            data-company="{{ $crit->company_id }}"
+                                                            title="Tugaskan Teknisi">
+                                                        Tugaskan
+                                                    </button>
+                                                @elseif(auth()->user()?->isAgent())
+                                                    <button type="button" class="btn btn-xs btn-success py-1 px-2 fw-bold fs-9 rounded-2 btn-claim-ticket"
+                                                            data-id="{{ $crit->id }}"
+                                                            data-number="{{ $crit->ticket_number }}"
+                                                            data-subject="{{ $crit->subject }}"
+                                                            data-status="{{ $crit->status->value ?? $crit->status }}"
+                                                            data-approval-status="{{ $crit->approval_status->value ?? $crit->approval_status }}"
+                                                            title="Ambil Tiket">
+                                                        Ambil Tiket
+                                                    </button>
+                                                @endif
+                                            @else
+                                                <button type="button" class="btn btn-xs btn-danger py-1 px-2 fw-bold fs-9 rounded-2 btn-quick-status"
+                                                        data-id="{{ $crit->id }}"
+                                                        data-number="{{ $crit->ticket_number }}"
+                                                        data-subject="{{ $crit->subject }}"
+                                                        data-status="{{ $crit->status->value ?? $crit->status }}"
+                                                        title="Perbarui Status">
+                                                    Tangani
+                                                </button>
+                                            @endif
                                         @endif
                                     </div>
                                     <a href="{{ url('/tickets/' . $crit->id) }}" class="text-gray-900 fw-bold fs-7 text-truncate mb-1 text-hover-primary text-decoration-none d-block" title="{{ $crit->subject }}">
@@ -425,6 +439,7 @@
                 @if(request('search')) <input type="hidden" name="search" value="{{ request('search') }}" /> @endif
                 @if(request('tab')) <input type="hidden" name="tab" value="{{ request('tab') }}" /> @endif
 
+                @if(auth()->user()->isSuperadmin())
                 <!-- Filter Perusahaan -->
                 <div class="w-160px">
                     <select name="company_id" id="filter_ticket_company" class="form-select form-select-solid form-select-sm rounded-3 fs-8" onchange="this.form.submit()">
@@ -436,6 +451,7 @@
                         @endforeach
                     </select>
                 </div>
+                @endif
 
                 <!-- Filter Departemen -->
                 <div class="w-160px">
@@ -575,16 +591,31 @@
                                         </div>
                                     </div>
                                 @else
-                                    <button type="button" class="btn btn-light-warning btn-sm fs-8 py-1 px-3 rounded-2 btn-quick-assign" 
-                                            data-id="{{ $ticket->id }}" 
-                                            data-number="{{ $ticket->ticket_number }}" 
-                                            data-subject="{{ $ticket->subject }}" 
-                                            data-company="{{ $ticket->company_id }}"
-                                            data-status="{{ $sVal }}"
-                                            data-approval-status="{{ $approvalVal }}">
-                                        <i class="ki-duotone ki-plus fs-7 me-1"><span class="path1"></span><span class="path2"></span></i>
-                                        Tugaskan
-                                    </button>
+                                    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+                                        <button type="button" class="btn btn-light-warning btn-sm fs-8 py-1 px-3 rounded-2 btn-quick-assign" 
+                                                data-id="{{ $ticket->id }}" 
+                                                data-number="{{ $ticket->ticket_number }}" 
+                                                data-subject="{{ $ticket->subject }}" 
+                                                data-company="{{ $ticket->company_id }}"
+                                                data-status="{{ $sVal }}"
+                                                data-approval-status="{{ $approvalVal }}">
+                                            <i class="ki-duotone ki-plus fs-7 me-1"><span class="path1"></span><span class="path2"></span></i>
+                                            Tugaskan
+                                        </button>
+                                    @elseif(auth()->user()?->isAgent())
+                                        <button type="button" class="btn btn-light-success btn-sm fs-8 py-1 px-3 rounded-2 btn-claim-ticket" 
+                                                data-id="{{ $ticket->id }}" 
+                                                data-number="{{ $ticket->ticket_number }}" 
+                                                data-subject="{{ $ticket->subject }}" 
+                                                data-company="{{ $ticket->company_id }}"
+                                                data-status="{{ $sVal }}"
+                                                data-approval-status="{{ $approvalVal }}">
+                                            <i class="ki-duotone ki-check-circle fs-7 me-1 text-success"><span class="path1"></span><span class="path2"></span></i>
+                                            Ambil Tiket
+                                        </button>
+                                    @else
+                                        <span class="badge badge-light-warning fs-8">Menunggu Teknisi</span>
+                                    @endif
                                 @endif
                             </td>
 
@@ -663,36 +694,54 @@
                                         <i class="ki-duotone ki-eye fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                                     </a>
 
-                                    <!-- Quick Assign -->
-                                    <button type="button" class="btn btn-icon btn-bg-light btn-active-color-primary btn-sm rounded-2 btn-quick-assign" 
-                                            data-id="{{ $ticket->id }}" 
-                                            data-number="{{ $ticket->ticket_number }}" 
-                                            data-subject="{{ $ticket->subject }}" 
-                                            data-company="{{ $ticket->company_id }}"
-                                            data-status="{{ $sVal }}"
-                                            data-approval-status="{{ $approvalVal }}"
-                                            title="Tugaskan Teknisi">
-                                        <i class="ki-duotone ki-user-square fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
-                                    </button>
+                                    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+                                        <!-- Quick Assign -->
+                                        <button type="button" class="btn btn-icon btn-bg-light btn-active-color-primary btn-sm rounded-2 btn-quick-assign" 
+                                                data-id="{{ $ticket->id }}" 
+                                                data-number="{{ $ticket->ticket_number }}" 
+                                                data-subject="{{ $ticket->subject }}" 
+                                                data-company="{{ $ticket->company_id }}"
+                                                data-status="{{ $sVal }}"
+                                                data-approval-status="{{ $approvalVal }}"
+                                                title="Tugaskan Teknisi">
+                                            <i class="ki-duotone ki-user-square fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                        </button>
+                                    @elseif(auth()->user()?->isAgent() && !$ticket->assigned_to)
+                                        <!-- Ambil Tiket -->
+                                        <button type="button" class="btn btn-icon btn-bg-light btn-active-color-success btn-sm rounded-2 btn-claim-ticket" 
+                                                data-id="{{ $ticket->id }}" 
+                                                data-number="{{ $ticket->ticket_number }}" 
+                                                data-subject="{{ $ticket->subject }}" 
+                                                data-company="{{ $ticket->company_id }}"
+                                                data-status="{{ $sVal }}"
+                                                data-approval-status="{{ $approvalVal }}"
+                                                title="Ambil Tiket">
+                                            <i class="ki-duotone ki-check-circle fs-4 text-success"><span class="path1"></span><span class="path2"></span></i>
+                                        </button>
+                                    @endif
 
-                                    <!-- Quick Status -->
-                                    <button type="button" class="btn btn-icon btn-bg-light btn-active-color-info btn-sm rounded-2 btn-quick-status" 
-                                            data-id="{{ $ticket->id }}" 
-                                            data-number="{{ $ticket->ticket_number }}" 
-                                            data-subject="{{ $ticket->subject }}" 
-                                            data-status="{{ $sVal }}"
-                                            data-approval-status="{{ $approvalVal }}"
-                                            title="Ubah Status">
-                                        <i class="ki-duotone ki-arrows-circle fs-4"><span class="path1"></span><span class="path2"></span></i>
-                                    </button>
+                                    @if(!auth()->user()?->isRequester())
+                                        <!-- Quick Status -->
+                                        <button type="button" class="btn btn-icon btn-bg-light btn-active-color-info btn-sm rounded-2 btn-quick-status" 
+                                                data-id="{{ $ticket->id }}" 
+                                                data-number="{{ $ticket->ticket_number }}" 
+                                                data-subject="{{ $ticket->subject }}" 
+                                                data-status="{{ $sVal }}"
+                                                data-approval-status="{{ $approvalVal }}"
+                                                title="Ubah Status">
+                                            <i class="ki-duotone ki-arrows-circle fs-4"><span class="path1"></span><span class="path2"></span></i>
+                                        </button>
+                                    @endif
 
-                                    <!-- Delete Ticket -->
-                                    <button type="button" class="btn btn-icon btn-bg-light btn-active-color-danger btn-sm rounded-2 btn-delete-ticket" 
-                                            data-id="{{ $ticket->id }}" 
-                                            data-number="{{ $ticket->ticket_number }}" 
-                                            title="Hapus Tiket">
-                                        <i class="ki-duotone ki-trash fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
-                                    </button>
+                                    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+                                        <!-- Delete Ticket -->
+                                        <button type="button" class="btn btn-icon btn-bg-light btn-active-color-danger btn-sm rounded-2 btn-delete-ticket" 
+                                                data-id="{{ $ticket->id }}" 
+                                                data-number="{{ $ticket->ticket_number }}" 
+                                                title="Hapus Tiket">
+                                            <i class="ki-duotone ki-trash fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
+                                        </button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -733,8 +782,12 @@
 
 <!-- Modals -->
 @include('tickets._modal_create')
-@include('tickets._modal_assign')
-@include('tickets._modal_status')
+@if(!auth()->user()?->isRequester())
+    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+        @include('tickets._modal_assign')
+    @endif
+    @include('tickets._modal_status')
+@endif
 
 @endsection
 
@@ -769,25 +822,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Filter Requesters
-        Array.from(createRequester.options).forEach(opt => {
-            if (opt.value === '') return;
-            const cId = opt.getAttribute('data-company');
-            opt.style.display = (!companyId || cId === companyId || !cId) ? 'block' : 'none';
-        });
+        if (createRequester && createRequester.tagName === 'SELECT' && createRequester.options) {
+            Array.from(createRequester.options).forEach(opt => {
+                if (opt.value === '') return;
+                const cId = opt.getAttribute('data-company');
+                opt.style.display = (!companyId || cId === companyId || !cId) ? 'block' : 'none';
+            });
+        }
 
         // Filter Assets
-        Array.from(createAsset.options).forEach(opt => {
-            if (opt.value === '') return;
-            const cId = opt.getAttribute('data-company');
-            opt.style.display = (!companyId || cId === companyId) ? 'block' : 'none';
-        });
+        if (createAsset && createAsset.tagName === 'SELECT' && createAsset.options) {
+            Array.from(createAsset.options).forEach(opt => {
+                if (opt.value === '') return;
+                const cId = opt.getAttribute('data-company');
+                opt.style.display = (!companyId || cId === companyId) ? 'block' : 'none';
+            });
+        }
 
         // Filter Agents
-        Array.from(createAgent.options).forEach(opt => {
-            if (opt.value === '') return;
-            const cId = opt.getAttribute('data-company');
-            opt.style.display = (!companyId || cId === companyId || !cId) ? 'block' : 'none';
-        });
+        if (createAgent && createAgent.tagName === 'SELECT' && createAgent.options) {
+            Array.from(createAgent.options).forEach(opt => {
+                if (opt.value === '') return;
+                const cId = opt.getAttribute('data-company');
+                opt.style.display = (!companyId || cId === companyId || !cId) ? 'block' : 'none';
+            });
+        }
     }
 
     if (createCompany) {
@@ -924,9 +983,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Quick Assign Handler
+    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
+    // Quick Assign Handler (Admin / Superadmin)
     const assignModalEl = document.getElementById('kt_modal_assign_ticket');
-    const assignModal = new bootstrap.Modal(assignModalEl);
+    const assignModal = assignModalEl ? new bootstrap.Modal(assignModalEl) : null;
     const formAssign = document.getElementById('form_assign_ticket');
     const btnSubmitAssign = document.getElementById('btn_submit_quick_assign');
 
@@ -966,64 +1026,161 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Filter agent dropdown by company
             const userSelect = document.getElementById('quick_assign_user_id');
-            Array.from(userSelect.options).forEach(opt => {
-                if (opt.value === '') return;
-                const cId = opt.getAttribute('data-company');
-                opt.style.display = (!companyId || cId === companyId || !cId) ? 'block' : 'none';
-            });
-            userSelect.value = '';
+            if (userSelect) {
+                Array.from(userSelect.options).forEach(opt => {
+                    if (opt.value === '') return;
+                    const cId = opt.getAttribute('data-company');
+                    opt.style.display = (!companyId || cId === companyId || !cId) ? 'block' : 'none';
+                });
+                userSelect.value = '';
+            }
 
-            assignModal.show();
+            if (assignModal) assignModal.show();
         });
     });
 
-    formAssign.addEventListener('submit', function (e) {
-        e.preventDefault();
+    if (formAssign) {
+        formAssign.addEventListener('submit', function (e) {
+            e.preventDefault();
 
-        const id = document.getElementById('quick_assign_ticket_id').value;
-        const agentId = document.getElementById('quick_assign_user_id').value;
-        const notes = document.getElementById('quick_assign_notes').value.trim();
+            const id = document.getElementById('quick_assign_ticket_id').value;
+            const agentId = document.getElementById('quick_assign_user_id').value;
+            const notes = document.getElementById('quick_assign_notes').value.trim();
 
-        btnSubmitAssign.setAttribute('data-kt-indicator', 'on');
-        btnSubmitAssign.disabled = true;
+            btnSubmitAssign.setAttribute('data-kt-indicator', 'on');
+            btnSubmitAssign.disabled = true;
 
-        fetch(`/api/v1/tickets/${id}/assign`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            body: JSON.stringify({
-                assigned_to: agentId || null,
-                notes: notes
+            fetch(`/api/v1/tickets/${id}/assign`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({
+                    assigned_to: agentId || null,
+                    notes: notes
+                })
             })
-        })
-        .then(async res => {
-            const data = await res.json();
-            if (!res.ok) throw data;
-            return data;
-        })
-        .then(data => {
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) throw data;
+                return data;
+            })
+            .then(data => {
+                Swal.fire({
+                    title: 'Berhasil!',
+                    text: data.message || 'Teknisi berhasil ditugaskan.',
+                    icon: 'success',
+                    confirmButtonText: 'OK'
+                }).then(() => location.reload());
+            })
+            .catch(err => {
+                Swal.fire('Gagal Menugaskan', err.message || 'Terjadi kesalahan sistem.', 'error');
+            })
+            .finally(() => {
+                btnSubmitAssign.removeAttribute('data-kt-indicator');
+                btnSubmitAssign.disabled = false;
+            });
+        });
+    }
+    @endif
+
+    @if(auth()->user()?->isAgent())
+    // -------------------------------------------------------------
+    // Claim Ticket Handler (Khusus Agent)
+    // -------------------------------------------------------------
+    document.querySelectorAll('.btn-claim-ticket').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const id = this.getAttribute('data-id');
+            const number = this.getAttribute('data-number');
+            const status = this.getAttribute('data-status');
+            const approvalStatus = this.getAttribute('data-approval-status');
+
+            if (status === 'pending_approval' || approvalStatus === 'pending') {
+                Swal.fire({
+                    title: 'Persetujuan Diperlukan!',
+                    html: `Tiket <strong>"${number}"</strong> saat ini masih berstatus <strong>Pending Approval</strong>.<br><br>Mohon tunggu persetujuan dari atasan terlebih dahulu sebelum tiket dapat diambil.`,
+                    icon: 'warning',
+                    confirmButtonText: 'Mengerti',
+                    customClass: { confirmButton: 'btn btn-warning' }
+                });
+                return;
+            }
+
             Swal.fire({
-                title: 'Berhasil!',
-                text: data.message || 'Teknisi berhasil ditugaskan.',
-                icon: 'success',
-                confirmButtonText: 'OK'
-            }).then(() => location.reload());
-        })
-        .catch(err => {
-            Swal.fire('Gagal Menugaskan', err.message || 'Terjadi kesalahan sistem.', 'error');
-        })
-        .finally(() => {
-            btnSubmitAssign.removeAttribute('data-kt-indicator');
-            btnSubmitAssign.disabled = false;
+                title: 'Ambil Tiket Ini?',
+                html: `Apakah Anda yakin ingin mengambil tiket <strong>"${number}"</strong> untuk Anda tangani sendiri?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '<i class="ki-duotone ki-check fs-6 me-1"><span class="path1"></span><span class="path2"></span></i> Ya, Ambil Tiket',
+                cancelButtonText: 'Batal',
+                customClass: {
+                    confirmButton: 'btn btn-success',
+                    cancelButton: 'btn btn-light'
+                }
+            }).then(result => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Memproses...',
+                        text: 'Sedang menugaskan tiket ke akun Anda',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    fetch(`/api/v1/tickets/${id}/assign`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: JSON.stringify({
+                            assigned_to: {{ auth()->id() }},
+                            notes: 'Tiket diambil mandiri oleh teknisi.'
+                        })
+                    })
+                    .then(res => res.json().then(data => ({ status: res.status, body: data })))
+                    .then(({ status, body }) => {
+                        if (status === 200 && body.success) {
+                            Swal.fire({
+                                title: 'Berhasil!',
+                                text: body.message || 'Tiket berhasil diambil dan ditugaskan kepada Anda.',
+                                icon: 'success',
+                                confirmButtonText: 'OK',
+                                customClass: { confirmButton: 'btn btn-primary' }
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Gagal Mengambil Tiket',
+                                text: body.message || 'Terjadi kesalahan sistem saat mengambil tiket.',
+                                icon: 'error',
+                                confirmButtonText: 'Tutup',
+                                customClass: { confirmButton: 'btn btn-danger' }
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        Swal.fire({
+                            title: 'Error Jaringan',
+                            text: 'Gagal menghubungi server.',
+                            icon: 'error',
+                            confirmButtonText: 'Tutup',
+                            customClass: { confirmButton: 'btn btn-danger' }
+                        });
+                    });
+                }
+            });
         });
     });
+    @endif
 
+    @if(!auth()->user()?->isRequester())
     // Quick Status Handler
     const statusModalEl = document.getElementById('kt_modal_status_ticket');
-    const statusModal = new bootstrap.Modal(statusModalEl);
+    const statusModal = statusModalEl ? new bootstrap.Modal(statusModalEl) : null;
     const formStatus = document.getElementById('form_status_ticket');
     const btnSubmitStatus = document.getElementById('btn_submit_quick_status');
 
@@ -1061,54 +1218,58 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('quick_status_value').value = currentStatus;
             document.getElementById('quick_status_notes').value = '';
 
-            statusModal.show();
+            if (statusModal) statusModal.show();
         });
     });
 
-    formStatus.addEventListener('submit', function (e) {
-        e.preventDefault();
+    if (formStatus) {
+        formStatus.addEventListener('submit', function (e) {
+            e.preventDefault();
 
-        const id = document.getElementById('quick_status_ticket_id').value;
-        const status = document.getElementById('quick_status_value').value;
-        const notes = document.getElementById('quick_status_notes').value.trim();
+            const id = document.getElementById('quick_status_ticket_id').value;
+            const status = document.getElementById('quick_status_value').value;
+            const notes = document.getElementById('quick_status_notes').value.trim();
 
-        btnSubmitStatus.setAttribute('data-kt-indicator', 'on');
-        btnSubmitStatus.disabled = true;
+            btnSubmitStatus.setAttribute('data-kt-indicator', 'on');
+            btnSubmitStatus.disabled = true;
 
-        fetch(`/api/v1/tickets/${id}/status`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            body: JSON.stringify({
-                status: status,
-                notes: notes
+            fetch(`/api/v1/tickets/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({
+                    status: status,
+                    notes: notes
+                })
             })
-        })
-        .then(async res => {
-            const data = await res.json();
-            if (!res.ok) throw data;
-            return data;
-        })
-        .then(data => {
-            Swal.fire({
-                title: 'Berhasil!',
-                text: data.message || 'Status tiket berhasil diubah.',
-                icon: 'success',
-                confirmButtonText: 'OK'
-            }).then(() => location.reload());
-        })
-        .catch(err => {
-            Swal.fire('Gagal Mengubah Status', err.message || 'Terjadi kesalahan sistem.', 'error');
-        })
-        .finally(() => {
-            btnSubmitStatus.removeAttribute('data-kt-indicator');
-            btnSubmitStatus.disabled = false;
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) throw data;
+                return data;
+            })
+            .then(data => {
+                Swal.fire({
+                    title: 'Berhasil!',
+                    text: data.message || 'Status tiket berhasil diubah.',
+                    icon: 'success',
+                    confirmButtonText: 'OK'
+                }).then(() => location.reload());
+            })
+            .catch(err => {
+                Swal.fire('Gagal Mengubah Status', err.message || 'Terjadi kesalahan sistem.', 'error');
+            })
+            .finally(() => {
+                btnSubmitStatus.removeAttribute('data-kt-indicator');
+                btnSubmitStatus.disabled = false;
+            });
         });
-    });
+    }
+    @endif
 
+    @if(auth()->user()?->isCompanyAdmin() || auth()->user()?->isSuperadmin())
     // Delete Ticket Handler
     document.querySelectorAll('.btn-delete-ticket').forEach(btn => {
         btn.addEventListener('click', function () {
@@ -1148,6 +1309,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     });
+    @endif
 });
 </script>
 @endpush

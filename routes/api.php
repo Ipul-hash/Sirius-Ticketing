@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\Master\CompanyAssetController;
 use App\Http\Controllers\Api\V1\Master\DepartmentController;
 use App\Http\Controllers\Api\V1\Master\SlaPolicyController;
 use App\Http\Controllers\Api\V1\Master\TicketCategoryController;
+use App\Http\Controllers\Api\V1\Master\UserController;
 use App\Http\Controllers\Api\V1\Superadmin\CompanyController;
 use App\Http\Controllers\Api\V1\Ticket\TicketActivityController;
 use App\Http\Controllers\Api\V1\Ticket\TicketApprovalController;
@@ -35,6 +36,21 @@ Route::prefix('v1')->group(function () {
     Route::get('/{tenant}/departments/{id}', [DepartmentController::class, 'show']);
     Route::put('/{tenant}/departments/{id}', [DepartmentController::class, 'update']);
     Route::delete('/{tenant}/departments/{id}', [DepartmentController::class, 'destroy']);
+
+    // ##############################
+    // ## Master Data Users / Staf ##
+    // ##############################
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+
+    Route::get('/{tenant}/users', [UserController::class, 'index']);
+    Route::post('/{tenant}/users', [UserController::class, 'store']);
+    Route::get('/{tenant}/users/{id}', [UserController::class, 'show']);
+    Route::put('/{tenant}/users/{id}', [UserController::class, 'update']);
+    Route::delete('/{tenant}/users/{id}', [UserController::class, 'destroy']);
 
     // ##############################
     // ## Master Data Companies #####

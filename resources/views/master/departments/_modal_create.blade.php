@@ -12,18 +12,28 @@
             <!-- Modal Form -->
             <form id="form_add_department" class="form" novalidate>
                 <div class="modal-body py-10 px-lg-17">
-                    <!-- Perusahaan / Tenant -->
-                    <div class="fv-row mb-7">
-                        <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
-                        <select class="form-select form-select-solid" name="company_id" id="add_company_id" required>
-                            @foreach($companies as $company)
-                                <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
-                                    {{ $company->name }} ({{ $company->slug }})
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="form-text">Departemen ini akan menjadi divisi di bawah perusahaan ini.</div>
-                    </div>
+                    @if(auth()->user()->isSuperadmin())
+                        <!-- Perusahaan / Tenant Selection -->
+                        <div class="fv-row mb-7">
+                            <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <select class="form-select form-select-solid" name="company_id" id="add_company_id" required>
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}" {{ $loop->first ? 'selected' : '' }}>
+                                        {{ $company->name }} ({{ $company->slug }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Departemen ini akan menjadi divisi di bawah perusahaan ini.</div>
+                        </div>
+                    @else
+                        <!-- Perusahaan / Tenant (Terkunci Otomatis) -->
+                        <input type="hidden" name="company_id" id="add_company_id" value="{{ auth()->user()->company_id }}" />
+                        <div class="fv-row mb-7">
+                            <label class="fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <input type="text" class="form-control form-control-solid bg-light" value="{{ auth()->user()->company?->name }}" readonly disabled />
+                            <div class="form-text">Departemen otomatis terdaftar di bawah perusahaan Anda.</div>
+                        </div>
+                    @endif
 
                     <!-- Nama Departemen -->
                     <div class="fv-row mb-7">
@@ -43,7 +53,7 @@
                         <select class="form-select form-select-solid" name="lead_user_id" id="add_lead_user_id">
                             <option value="">-- Pilih User Lead (Opsional) --</option>
                             @foreach($users as $user)
-                                <option value="{{ $user->id }}">
+                                <option value="{{ $user->id }}" data-company="{{ $user->company_id }}">
                                     {{ $user->name }} ({{ $user->email }}) - {{ $user->job_title ?? 'Staf' }}
                                 </option>
                             @endforeach

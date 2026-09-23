@@ -27,19 +27,37 @@ class PageController extends Controller
      */
     public function departments(Request $request): View
     {
-        $companies = Company::query()
-            ->where('status', CompanyStatus::Active)
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
 
-        $users = User::query()
+        $companiesQuery = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
+
+        $usersQuery = User::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'job_title', 'company_id']);
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $usersQuery->where('company_id', $companyId);
+        }
+        $users = $usersQuery->get(['id', 'name', 'email', 'job_title', 'company_id']);
 
         $departmentsQuery = Department::query()
             ->with(['company:id,name,slug', 'leadUser:id,name,email,job_title'])
             ->withCount(['users', 'tickets']);
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $departmentsQuery->where('company_id', $companyId);
+        } elseif ($request->filled('company_id')) {
+            $departmentsQuery->where('company_id', $request->company_id);
+        }
 
         if ($request->filled('search')) {
             $departmentsQuery->where('name', 'like', '%'.$request->search.'%');
@@ -49,14 +67,15 @@ class PageController extends Controller
             $departmentsQuery->where('is_active', $request->status === '1');
         }
 
-        if ($request->filled('company_id')) {
-            $departmentsQuery->where('company_id', $request->company_id);
-        }
-
         $departments = $departmentsQuery->orderBy('name')->paginate(10)->withQueryString();
 
-        $totalDepartments = Department::count();
-        $activeDepartments = Department::where('is_active', true)->count();
+        $statsDeptQuery = Department::query();
+        if (! $isSuperadmin && $companyId !== null) {
+            $statsDeptQuery->where('company_id', $companyId);
+        }
+
+        $totalDepartments = (clone $statsDeptQuery)->count();
+        $activeDepartments = (clone $statsDeptQuery)->where('is_active', true)->count();
         $totalUsers = $users->count();
         $totalCompanies = $companies->count();
         $activePercent = $totalDepartments > 0 ? (int) round(($activeDepartments / $totalDepartments) * 100) : 100;
@@ -72,6 +91,91 @@ class PageController extends Controller
         ];
 
         return view('master.departments.index', compact('departments', 'companies', 'users', 'stats'));
+    }
+
+    /**
+     * Menampilkan Halaman Master Pengguna / Staf (Metronic 8).
+     */
+    public function users(Request $request): View
+    {
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
+
+        $companiesQuery = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
+
+        $departmentsQuery = Department::query()
+            ->where('is_active', true)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $departmentsQuery->where('company_id', $companyId);
+        }
+        $departments = $departmentsQuery->get(['id', 'name', 'company_id']);
+
+        $staffQuery = User::query()
+            ->with(['company:id,name,slug', 'department:id,name'])
+            ->withCount(['assignedTickets', 'requestedTickets']);
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $staffQuery->where('company_id', $companyId);
+        } elseif ($request->filled('company_id')) {
+            $staffQuery->where('company_id', $request->company_id);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $staffQuery->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('job_title', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('role')) {
+            $staffQuery->where('role', $request->role);
+        }
+
+        if ($request->filled('department_id')) {
+            $staffQuery->where('department_id', $request->department_id);
+        }
+
+        if ($request->filled('status')) {
+            $staffQuery->where('is_active', $request->status === '1');
+        }
+
+        $staffUsers = $staffQuery->orderBy('name')->paginate(10)->withQueryString();
+
+        $statsQuery = User::query();
+        if (! $isSuperadmin && $companyId !== null) {
+            $statsQuery->where('company_id', $companyId);
+        }
+
+        $totalStaff = (clone $statsQuery)->count();
+        $activeStaff = (clone $statsQuery)->where('is_active', true)->count();
+        $totalAgents = (clone $statsQuery)->where('role', UserRole::Agent)->count();
+        $totalRequesters = (clone $statsQuery)->where('role', UserRole::Requester)->count();
+        $totalAdmins = (clone $statsQuery)->where('role', UserRole::CompanyAdmin)->count();
+        $activePercent = $totalStaff > 0 ? (int) round(($activeStaff / $totalStaff) * 100) : 100;
+
+        $stats = [
+            'total_staff' => $totalStaff,
+            'active_staff' => $activeStaff,
+            'total_agents' => $totalAgents,
+            'total_requesters' => $totalRequesters,
+            'total_admins' => $totalAdmins,
+            'active_percent' => $activePercent,
+        ];
+
+        return view('master.users.index', compact('staffUsers', 'companies', 'departments', 'stats'));
     }
 
     /**
@@ -123,20 +227,36 @@ class PageController extends Controller
      */
     public function assets(Request $request): View
     {
-        $companies = Company::query()
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
+
+        $companiesQuery = Company::query()
             ->where('status', CompanyStatus::Active)
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+            ->orderBy('name');
 
-        $departments = Department::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'company_id']);
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
 
-        $users = User::query()
+        $departmentsQuery = Department::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'company_id']);
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $departmentsQuery->where('company_id', $companyId);
+        }
+        $departments = $departmentsQuery->get(['id', 'name', 'company_id']);
+
+        $usersQuery = User::query()
+            ->where('is_active', true)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $usersQuery->where('company_id', $companyId);
+        }
+        $users = $usersQuery->get(['id', 'name', 'email', 'company_id']);
 
         $query = CompanyAsset::query()
             ->with([
@@ -145,6 +265,12 @@ class PageController extends Controller
                 'assignedUser:id,name,email,job_title',
             ])
             ->withCount('tickets');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $query->where('company_id', $companyId);
+        } elseif ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -163,16 +289,17 @@ class PageController extends Controller
             $query->where('status', $request->status);
         }
 
-        if ($request->filled('company_id')) {
-            $query->where('company_id', $request->company_id);
-        }
-
         $assets = $query->orderBy('name')->paginate(10)->withQueryString();
 
-        $totalAssets = CompanyAsset::count();
-        $inUseAssets = CompanyAsset::where('status', AssetStatus::InUse)->count();
-        $availableAssets = CompanyAsset::where('status', AssetStatus::Available)->count();
-        $maintenanceAssets = CompanyAsset::where('status', AssetStatus::Maintenance)->count();
+        $statsQuery = CompanyAsset::query();
+        if (! $isSuperadmin && $companyId !== null) {
+            $statsQuery->where('company_id', $companyId);
+        }
+
+        $totalAssets = (clone $statsQuery)->count();
+        $inUseAssets = (clone $statsQuery)->where('status', AssetStatus::InUse)->count();
+        $availableAssets = (clone $statsQuery)->where('status', AssetStatus::Available)->count();
+        $maintenanceAssets = (clone $statsQuery)->where('status', AssetStatus::Maintenance)->count();
         $utilizationPercent = $totalAssets > 0 ? (int) round(($inUseAssets / $totalAssets) * 100) : 0;
 
         $stats = [
@@ -191,12 +318,25 @@ class PageController extends Controller
      */
     public function slaPolicies(Request $request): View
     {
-        $companies = Company::query()
-            ->where('status', CompanyStatus::Active)
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
 
-        $selectedCompanyId = $request->query('company_id', $companies->first()?->id);
+        $companiesQuery = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $selectedCompanyId = $companyId;
+        } else {
+            $selectedCompanyId = $request->query('company_id', $companies->first()?->id);
+        }
+
         $selectedCompany = $companies->firstWhere('id', $selectedCompanyId) ?? $companies->first();
 
         $policies = collect();
@@ -249,15 +389,27 @@ class PageController extends Controller
      */
     public function ticketCategories(Request $request): View
     {
-        $companies = Company::query()
-            ->where('status', CompanyStatus::Active)
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
 
-        $departments = Department::query()
+        $companiesQuery = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
+
+        $departmentsQuery = Department::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'company_id']);
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $departmentsQuery->where('company_id', $companyId);
+        }
+        $departments = $departmentsQuery->get(['id', 'name', 'company_id']);
 
         $query = TicketCategory::query()
             ->with([
@@ -266,13 +418,15 @@ class PageController extends Controller
             ])
             ->withCount('tickets');
 
+        if (! $isSuperadmin && $companyId !== null) {
+            $query->where('company_id', $companyId);
+        } elseif ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where('name', 'like', "%{$search}%");
-        }
-
-        if ($request->filled('company_id')) {
-            $query->where('company_id', $request->company_id);
         }
 
         if ($request->filled('department_id')) {
@@ -293,10 +447,15 @@ class PageController extends Controller
 
         $categories = $query->orderBy('name')->paginate(10)->withQueryString();
 
-        $totalCategories = TicketCategory::count();
-        $activeCategories = TicketCategory::where('is_active', true)->count();
-        $approvalCategories = TicketCategory::where('requires_approval', true)->count();
-        $totalTicketsLinked = TicketCategory::withCount('tickets')->get()->sum('tickets_count');
+        $statsQuery = TicketCategory::query();
+        if (! $isSuperadmin && $companyId !== null) {
+            $statsQuery->where('company_id', $companyId);
+        }
+
+        $totalCategories = (clone $statsQuery)->count();
+        $activeCategories = (clone $statsQuery)->where('is_active', true)->count();
+        $approvalCategories = (clone $statsQuery)->where('requires_approval', true)->count();
+        $totalTicketsLinked = (clone $statsQuery)->withCount('tickets')->get()->sum('tickets_count');
 
         $stats = [
             'total_categories' => $totalCategories,
@@ -315,21 +474,39 @@ class PageController extends Controller
      */
     public function cannedResponses(Request $request): View
     {
-        $companies = Company::query()
-            ->where('status', CompanyStatus::Active)
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
 
-        $departments = Department::query()
+        $companiesQuery = Company::query()
+            ->where('status', CompanyStatus::Active)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
+
+        $departmentsQuery = Department::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'company_id']);
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $departmentsQuery->where('company_id', $companyId);
+        }
+        $departments = $departmentsQuery->get(['id', 'name', 'company_id']);
 
         $query = CannedResponse::query()
             ->with([
                 'company:id,name,slug',
                 'department:id,name',
             ]);
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $query->where('company_id', $companyId);
+        } elseif ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -338,10 +515,6 @@ class PageController extends Controller
                     ->orWhere('title', 'like', "%{$search}%")
                     ->orWhere('message', 'like', "%{$search}%");
             });
-        }
-
-        if ($request->filled('company_id')) {
-            $query->where('company_id', $request->company_id);
         }
 
         if ($request->filled('department_id')) {
@@ -355,10 +528,15 @@ class PageController extends Controller
 
         $responses = $query->orderBy('title')->paginate(10)->withQueryString();
 
-        $totalResponses = CannedResponse::count();
-        $globalResponses = CannedResponse::whereNull('department_id')->count();
-        $deptSpecificResponses = CannedResponse::whereNotNull('department_id')->count();
-        $totalCompaniesWithResponses = CannedResponse::distinct('company_id')->count('company_id');
+        $statsQuery = CannedResponse::query();
+        if (! $isSuperadmin && $companyId !== null) {
+            $statsQuery->where('company_id', $companyId);
+        }
+
+        $totalResponses = (clone $statsQuery)->count();
+        $globalResponses = (clone $statsQuery)->whereNull('department_id')->count();
+        $deptSpecificResponses = (clone $statsQuery)->whereNotNull('department_id')->count();
+        $totalCompaniesWithResponses = (clone $statsQuery)->distinct('company_id')->count('company_id');
 
         $stats = [
             'total_responses' => $totalResponses,
@@ -375,29 +553,51 @@ class PageController extends Controller
      */
     public function tickets(Request $request): View
     {
-        $companies = Company::query()
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
+
+        $companiesQuery = Company::query()
             ->where('status', CompanyStatus::Active)
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+            ->orderBy('name');
 
-        $departments = Department::query()
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
+
+        $departmentsQuery = Department::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'company_id']);
+            ->orderBy('name');
 
-        $categories = TicketCategory::query()
+        if (! $isSuperadmin && $companyId !== null) {
+            $departmentsQuery->where('company_id', $companyId);
+        }
+        $departments = $departmentsQuery->get(['id', 'name', 'company_id']);
+
+        $categoriesQuery = TicketCategory::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'company_id', 'department_id', 'default_priority', 'requires_approval']);
+            ->orderBy('name');
 
-        $users = User::query()
+        if (! $isSuperadmin && $companyId !== null) {
+            $categoriesQuery->where('company_id', $companyId);
+        }
+        $categories = $categoriesQuery->get(['id', 'name', 'company_id', 'department_id', 'default_priority', 'requires_approval']);
+
+        $usersQuery = User::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'company_id', 'job_title']);
+            ->orderBy('name');
 
-        $assets = CompanyAsset::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'asset_tag', 'company_id', 'department_id']);
+        if (! $isSuperadmin && $companyId !== null) {
+            $usersQuery->where('company_id', $companyId);
+        }
+        $users = $usersQuery->get(['id', 'name', 'email', 'role', 'company_id', 'job_title']);
+
+        $assetsQuery = CompanyAsset::query()->orderBy('name');
+        if (! $isSuperadmin && $companyId !== null) {
+            $assetsQuery->where('company_id', $companyId);
+        }
+        $assets = $assetsQuery->get(['id', 'name', 'asset_tag', 'company_id', 'department_id']);
 
         $query = Ticket::query()
             ->with([
@@ -409,13 +609,19 @@ class PageController extends Controller
                 'asset:id,name,asset_tag,category',
             ]);
 
+        if (! $isSuperadmin && $companyId !== null) {
+            $query->where('company_id', $companyId);
+        } elseif ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
+
         // Filter Tab Antrean
         $activeTab = $request->query('tab', 'all');
         if ($activeTab === 'unassigned') {
             $query->whereNull('assigned_to')
                 ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed]);
         } elseif ($activeTab === 'my_tickets') {
-            $currentUserId = $request->user()?->id ?? $request->query('user_id');
+            $currentUserId = $user?->id ?? $request->query('user_id');
             if ($currentUserId) {
                 $query->where('assigned_to', $currentUserId);
             }
@@ -437,10 +643,6 @@ class PageController extends Controller
                 $q->where('ticket_number', 'like', "%{$search}%")
                     ->orWhere('subject', 'like', "%{$search}%");
             });
-        }
-
-        if ($request->filled('company_id')) {
-            $query->where('company_id', $request->company_id);
         }
 
         if ($request->filled('department_id')) {
@@ -469,44 +671,51 @@ class PageController extends Controller
 
         $tickets = $query->orderByDesc('created_at')->paginate(10)->withQueryString();
 
-        // 4 Metric Summary Cards
-        $totalOpen = Ticket::whereIn('status', [TicketStatus::Open, TicketStatus::InProgress])->count();
-        $totalUnassigned = Ticket::whereNull('assigned_to')->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])->count();
-        $totalPending = Ticket::whereIn('status', [TicketStatus::PendingApproval, TicketStatus::PendingUser])->count();
-        $totalOverdue = Ticket::where('is_sla_breached', true)
-            ->orWhere(function ($sub) {
-                $sub->whereNull('resolved_at')->where('resolution_due_at', '<', now());
-            })->count();
+        // 4 Metric Summary Cards (Scoped by company)
+        $ticketStatsBase = Ticket::query();
+        if (! $isSuperadmin && $companyId !== null) {
+            $ticketStatsBase->where('company_id', $companyId);
+        }
+
+        $totalOpen = (clone $ticketStatsBase)->whereIn('status', [TicketStatus::Open, TicketStatus::InProgress])->count();
+        $totalUnassigned = (clone $ticketStatsBase)->whereNull('assigned_to')->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])->count();
+        $totalPending = (clone $ticketStatsBase)->whereIn('status', [TicketStatus::PendingApproval, TicketStatus::PendingUser])->count();
+        $totalOverdue = (clone $ticketStatsBase)->where(function ($q) {
+            $q->where('is_sla_breached', true)
+                ->orWhere(function ($sub) {
+                    $sub->whereNull('resolved_at')->where('resolution_due_at', '<', now());
+                });
+        })->count();
 
         $stats = [
             'total_open' => $totalOpen,
             'total_unassigned' => $totalUnassigned,
             'total_pending' => $totalPending,
             'total_overdue' => $totalOverdue,
-            'total_all' => Ticket::count(),
+            'total_all' => (clone $ticketStatsBase)->count(),
         ];
 
         // Sebaran Prioritas Tiket Aktif
-        $urgentCount = Ticket::where('priority', TicketPriority::Urgent)
+        $urgentCount = (clone $ticketStatsBase)->where('priority', TicketPriority::Urgent)
             ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
             ->count();
-        $highCount = Ticket::where('priority', TicketPriority::High)
+        $highCount = (clone $ticketStatsBase)->where('priority', TicketPriority::High)
             ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
             ->count();
-        $mediumCount = Ticket::where('priority', TicketPriority::Medium)
+        $mediumCount = (clone $ticketStatsBase)->where('priority', TicketPriority::Medium)
             ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
             ->count();
-        $lowCount = Ticket::where('priority', TicketPriority::Low)
+        $lowCount = (clone $ticketStatsBase)->where('priority', TicketPriority::Low)
             ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
             ->count();
 
         // Tingkat Kepatuhan SLA Tiket Aktif
-        $activeTicketsCount = Ticket::whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])->count();
+        $activeTicketsCount = (clone $ticketStatsBase)->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])->count();
         $onTrackCount = max(0, $activeTicketsCount - $totalOverdue);
         $slaComplianceRate = $activeTicketsCount > 0 ? (int) round(($onTrackCount / $activeTicketsCount) * 100) : 100;
 
         // Spotlight Tiket Kritis / Overdue Terlama yang Butuh Penanganan
-        $criticalTicket = Ticket::query()
+        $criticalTicketQuery = Ticket::query()
             ->with(['company:id,name,slug', 'category:id,name', 'requester:id,name,avatar_path', 'assignedAgent:id,name,avatar_path'])
             ->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed])
             ->where(function ($q) {
@@ -515,17 +724,22 @@ class PageController extends Controller
                     ->orWhere(function ($sub) {
                         $sub->whereNull('resolved_at')->where('resolution_due_at', '<', now());
                     });
-            })
-            ->orderBy('created_at', 'asc')
-            ->first();
+            });
+        if (! $isSuperadmin && $companyId !== null) {
+            $criticalTicketQuery->where('company_id', $companyId);
+        }
+        $criticalTicket = $criticalTicketQuery->orderBy('created_at', 'asc')->first();
 
         // Beban Kerja Agen / Teknisi Aktif
-        $agentWorkloads = User::query()
+        $agentQuery = User::query()
             ->where('is_active', true)
-            ->whereIn('role', [UserRole::Agent, UserRole::CompanyAdmin, UserRole::Superadmin])
-            ->withCount(['assignedTickets' => function ($q) {
-                $q->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed]);
-            }])
+            ->whereIn('role', [UserRole::Agent, UserRole::CompanyAdmin, UserRole::Superadmin]);
+        if (! $isSuperadmin && $companyId !== null) {
+            $agentQuery->where('company_id', $companyId);
+        }
+        $agentWorkloads = $agentQuery->withCount(['assignedTickets' => function ($q) {
+            $q->whereNotIn('status', [TicketStatus::Resolved, TicketStatus::Closed]);
+        }])
             ->orderByDesc('assigned_tickets_count')
             ->limit(3)
             ->get(['id', 'name', 'job_title', 'avatar_path', 'role']);
@@ -564,20 +778,36 @@ class PageController extends Controller
      */
     public function approvals(Request $request): View
     {
-        $companies = Company::query()
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
+
+        $companiesQuery = Company::query()
             ->where('status', CompanyStatus::Active)
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug']);
+            ->orderBy('name');
 
-        $departments = Department::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'company_id']);
+        if (! $isSuperadmin && $companyId !== null) {
+            $companiesQuery->where('id', $companyId);
+        }
+        $companies = $companiesQuery->get(['id', 'name', 'slug']);
 
-        $categories = TicketCategory::query()
+        $departmentsQuery = Department::query()
             ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'company_id']);
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $departmentsQuery->where('company_id', $companyId);
+        }
+        $departments = $departmentsQuery->get(['id', 'name', 'company_id']);
+
+        $categoriesQuery = TicketCategory::query()
+            ->where('is_active', true)
+            ->orderBy('name');
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $categoriesQuery->where('company_id', $companyId);
+        }
+        $categories = $categoriesQuery->get(['id', 'name', 'company_id']);
 
         $query = Ticket::query()
             ->with([
@@ -591,6 +821,12 @@ class PageController extends Controller
                     $q->with('approver:id,name,email,role,job_title')->latest();
                 },
             ]);
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $query->where('company_id', $companyId);
+        } elseif ($request->filled('company_id')) {
+            $query->where('company_id', $request->company_id);
+        }
 
         // Status tab: 'pending' (default), 'approved', 'rejected', 'all'
         $activeTab = $request->query('status', 'pending');
@@ -624,10 +860,6 @@ class PageController extends Controller
             });
         }
 
-        if ($request->filled('company_id')) {
-            $query->where('company_id', $request->company_id);
-        }
-
         if ($request->filled('department_id')) {
             $query->where('department_id', $request->department_id);
         }
@@ -641,18 +873,23 @@ class PageController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $pendingCount = Ticket::where(function ($q) {
+        $statsQuery = Ticket::query();
+        if (! $isSuperadmin && $companyId !== null) {
+            $statsQuery->where('company_id', $companyId);
+        }
+
+        $pendingCount = (clone $statsQuery)->where(function ($q) {
             $q->where('status', TicketStatus::PendingApproval)
                 ->orWhere('approval_status', TicketApprovalStatus::Pending);
         })->count();
 
-        $urgentPendingCount = Ticket::where(function ($q) {
+        $urgentPendingCount = (clone $statsQuery)->where(function ($q) {
             $q->where('status', TicketStatus::PendingApproval)
                 ->orWhere('approval_status', TicketApprovalStatus::Pending);
         })->whereIn('priority', [TicketPriority::Urgent, TicketPriority::High])->count();
 
-        $approvedCount = Ticket::where('approval_status', TicketApprovalStatus::Approved)->count();
-        $rejectedCount = Ticket::where('approval_status', TicketApprovalStatus::Rejected)->count();
+        $approvedCount = (clone $statsQuery)->where('approval_status', TicketApprovalStatus::Approved)->count();
+        $rejectedCount = (clone $statsQuery)->where('approval_status', TicketApprovalStatus::Rejected)->count();
 
         $stats = [
             'pending_count' => $pendingCount,
@@ -679,7 +916,11 @@ class PageController extends Controller
      */
     public function ticketDetail(Request $request, string $id): View
     {
-        $ticket = Ticket::query()
+        $user = $request->user();
+        $isSuperadmin = $user?->isSuperadmin() ?? false;
+        $companyId = $user?->company_id;
+
+        $ticketQuery = Ticket::query()
             ->with([
                 'company:id,name,slug',
                 'department:id,name',
@@ -701,10 +942,15 @@ class PageController extends Controller
                 'mergedTickets' => function ($q) {
                     $q->with('requester:id,name,email')->orderBy('created_at', 'desc');
                 },
-            ])
-            ->where('id', $id)
-            ->orWhere('ticket_number', $id)
-            ->firstOrFail();
+            ]);
+
+        if (! $isSuperadmin && $companyId !== null) {
+            $ticketQuery->where('company_id', $companyId);
+        }
+
+        $ticket = $ticketQuery->where(function ($q) use ($id) {
+            $q->where('id', $id)->orWhere('ticket_number', $id);
+        })->firstOrFail();
 
         $agents = User::query()
             ->where('company_id', $ticket->company_id)

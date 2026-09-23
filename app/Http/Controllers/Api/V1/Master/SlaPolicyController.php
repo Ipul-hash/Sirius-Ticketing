@@ -30,7 +30,7 @@ class SlaPolicyController extends Controller
                 ['priority' => TicketPriority::High, 'first_response' => 120, 'resolution' => 480],
                 ['priority' => TicketPriority::Urgent, 'first_response' => 30, 'resolution' => 120],
             ];
-                
+
             foreach ($defaultSlas as $sla) {
                 SlaPolicy::create([
                     'company_id' => $companyId,
@@ -98,6 +98,11 @@ class SlaPolicyController extends Controller
 
     protected function resolveCompanyId(Request $request, ?string $tenant = null): ?int
     {
+        $user = $request->user();
+        if ($user !== null && ! $user->isSuperadmin() && $user->company_id !== null) {
+            return (int) $user->company_id;
+        }
+
         if ($tenant !== null && $tenant !== '') {
             $company = Company::where('slug', $tenant)
                 ->orWhere('id', $tenant)
@@ -112,8 +117,8 @@ class SlaPolicyController extends Controller
             return (int) $request->input('company_id');
         }
 
-        if ($request->user() !== null && $request->user()->company_id !== null) {
-            return (int) $request->user()->company_id;
+        if ($user !== null && $user->company_id !== null) {
+            return (int) $user->company_id;
         }
 
         return null;

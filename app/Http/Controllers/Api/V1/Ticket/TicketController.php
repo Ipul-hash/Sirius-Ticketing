@@ -149,6 +149,9 @@ class TicketController extends Controller
     {
         $companyId = $this->resolveCompanyId($request, $tenant);
 
+        $authUser = $request->user();
+        $isRequester = $authUser?->isRequester() ?? false;
+
         $validated = $request->validate([
             'company_id' => [
                 $companyId !== null ? 'nullable' : 'required',
@@ -178,7 +181,11 @@ class TicketController extends Controller
                 }),
             ],
             'priority' => ['nullable', Rule::enum(TicketPriority::class)],
-            'requester_id' => 'required|integer|exists:users,id',
+            'requester_id' => [
+                $isRequester ? 'nullable' : 'required',
+                'integer',
+                'exists:users,id',
+            ],
             'assigned_to' => 'nullable|integer|exists:users,id',
             'asset_id' => [
                 'nullable',
@@ -191,6 +198,20 @@ class TicketController extends Controller
                 }),
             ],
         ]);
+
+        if ($isRequester && $authUser !== null) {
+            $validated['requester_id'] = $authUser->id;
+            $validated['assigned_to'] = null;
+        }
+
+        if ($authUser?->isAgent()) {
+            if (! empty($validated['assigned_to']) && (int) $validated['assigned_to'] !== $authUser->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akses ditolak. Sebagai Teknisi/Agent, Anda hanya dapat mengambil tiket untuk diri sendiri atau membiarkannya unassigned.',
+                ], 403);
+            }
+        }
 
         $finalCompanyId = $companyId ?? (int) $validated['company_id'];
 
@@ -453,6 +474,14 @@ class TicketController extends Controller
         $oldStatus = $ticket->status->value;
         $newStatus = $validated['status'];
 
+        // Pengguna Requester tidak berwenang mengubah tiket ke status teknis/resolve
+        if ($request->user()?->isRequester() && in_array($newStatus, [TicketStatus::Resolved->value, TicketStatus::InProgress->value, TicketStatus::PendingApproval->value], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak. Pengguna dengan peran Pemohon (Requester) tidak berwenang mengubah status tiket menjadi '.$newStatus.'.',
+            ], 403);
+        }
+
         // Cegah transisi status ke aktif jika tiket masih berstatus Pending Approval
         if (($ticket->status === TicketStatus::PendingApproval || $ticket->approval_status === TicketApprovalStatus::Pending)
             && in_array($newStatus, [TicketStatus::Open->value, TicketStatus::InProgress->value, TicketStatus::Resolved->value])) {
@@ -518,6 +547,34 @@ class TicketController extends Controller
             ], 404);
         }
 
+        $authUser = $request->user();
+
+        if ($authUser?->isRequester()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak. Pengguna dengan peran Pemohon (Requester) tidak berwenang menugaskan teknisi.',
+            ], 403);
+        }
+
+        if ($authUser?->isAgent()) {
+            // Jika tiket sudah ditugaskan ke teknisi lain, tolak
+            if ($ticket->assigned_to !== null && $ticket->assigned_to !== $authUser->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akses ditolak. Tiket ini sudah ditugaskan kepada teknisi lain. Hanya Administrator yang dapat memindahkan penugasan tiket.',
+                ], 403);
+            }
+
+            // Jika agent mencoba menugaskan ke staf/teknisi lain
+            $requestedAgent = ! empty($request->input('assigned_to')) ? (int) $request->input('assigned_to') : $authUser->id;
+            if ($requestedAgent !== $authUser->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akses ditolak. Sebagai Teknisi/Agent, Anda hanya diperbolehkan mengambil tiket untuk diri sendiri (Ambil Tiket) dan tidak dapat menugaskan ke staf lain.',
+                ], 403);
+            }
+        }
+
         $validated = $request->validate([
             'assigned_to' => [
                 'nullable',
@@ -533,7 +590,7 @@ class TicketController extends Controller
         ]);
 
         $oldAgentId = $ticket->assigned_to;
-        $newAgentId = ! empty($validated['assigned_to']) ? (int) $validated['assigned_to'] : null;
+        $newAgentId = ! empty($validated['assigned_to']) ? (int) $validated['assigned_to'] : ($authUser?->isAgent() ? $authUser->id : null);
 
         // Cegah penugasan teknisi jika tiket masih berstatus Pending Approval
         if (($ticket->status === TicketStatus::PendingApproval || $ticket->approval_status === TicketApprovalStatus::Pending) && $newAgentId !== null) {
@@ -552,20 +609,22 @@ class TicketController extends Controller
 
         $ticket->update($updateData);
 
+        $isSelfClaim = $authUser?->isAgent() && $newAgentId === $authUser->id;
+
         TicketActivity::create([
             'ticket_id' => $ticket->id,
-            'user_id' => $request->user()?->id,
+            'user_id' => $authUser?->id,
             'activity_type' => 'assigned_agent',
             'old_value' => $oldAgentId ? (string) $oldAgentId : 'Unassigned',
             'new_value' => $newAgentId ? (string) $newAgentId : 'Unassigned',
-            'notes' => $validated['notes'] ?? ($newAgentId ? 'Tiket berhasil ditugaskan ke teknisi.' : 'Penugasan teknisi dibatalkan (Unassigned).'),
+            'notes' => $validated['notes'] ?? ($isSelfClaim ? 'Tiket diambil secara mandiri oleh teknisi.' : ($newAgentId ? 'Tiket berhasil ditugaskan ke teknisi.' : 'Penugasan teknisi dibatalkan (Unassigned).')),
         ]);
 
         $ticket->load('assignedAgent:id,name,email,job_title');
 
         return response()->json([
             'success' => true,
-            'message' => $newAgentId ? 'Tiket berhasil ditugaskan ke teknisi.' : 'Tiket dikembalikan ke antrean belum ditugaskan.',
+            'message' => $isSelfClaim ? 'Tiket berhasil diambil dan ditugaskan kepada Anda.' : ($newAgentId ? 'Tiket berhasil ditugaskan ke teknisi.' : 'Tiket dikembalikan ke antrean belum ditugaskan.'),
             'data' => $ticket,
         ], 200);
     }
@@ -577,6 +636,14 @@ class TicketController extends Controller
     {
         $tenant = $param2 !== null ? $param1 : null;
         $targetId = $param2 !== null ? $param2 : $param1;
+
+        $authUser = $request->user();
+        if (! ($authUser?->isSuperadmin() || $authUser?->isCompanyAdmin())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak. Hanya Administrator yang memiliki hak akses untuk menghapus tiket.',
+            ], 403);
+        }
 
         $companyId = $this->resolveCompanyId($request, $tenant);
 
@@ -651,6 +718,11 @@ class TicketController extends Controller
      */
     protected function resolveCompanyId(Request $request, ?string $tenant = null): ?int
     {
+        $user = $request->user();
+        if ($user !== null && ! $user->isSuperadmin() && $user->company_id !== null) {
+            return (int) $user->company_id;
+        }
+
         if ($tenant !== null && $tenant !== '') {
             $company = Company::where('slug', $tenant)
                 ->orWhere('id', $tenant)
@@ -665,8 +737,8 @@ class TicketController extends Controller
             return (int) $request->input('company_id');
         }
 
-        if ($request->user() !== null && $request->user()->company_id !== null) {
-            return (int) $request->user()->company_id;
+        if ($user !== null && $user->company_id !== null) {
+            return (int) $user->company_id;
         }
 
         return null;

@@ -274,6 +274,11 @@ class CannedResponseController extends Controller
      */
     protected function resolveCompanyId(Request $request, ?string $tenant = null): ?int
     {
+        $user = $request->user();
+        if ($user !== null && ! $user->isSuperadmin() && $user->company_id !== null) {
+            return (int) $user->company_id;
+        }
+
         if ($tenant !== null && $tenant !== '') {
             $company = Company::where('slug', $tenant)
                 ->orWhere('id', $tenant)
@@ -288,8 +293,8 @@ class CannedResponseController extends Controller
             return (int) $request->input('company_id');
         }
 
-        if ($request->user() !== null && $request->user()->company_id !== null) {
-            return (int) $request->user()->company_id;
+        if ($user !== null && $user->company_id !== null) {
+            return (int) $user->company_id;
         }
 
         return null;

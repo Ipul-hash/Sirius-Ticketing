@@ -11,16 +11,25 @@
 
             <form id="form_add_asset" class="form">
                 <div class="modal-body py-10 px-lg-17">
-                    <!-- Tenant Selection -->
-                    <div class="fv-row mb-7">
-                        <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
-                        <select id="add_asset_company_id" class="form-select form-select-solid" required>
-                            <option value="">Pilih Tenant Perusahaan</option>
-                            @foreach($companies as $company)
-                                <option value="{{ $company->id }}">{{ $company->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    @if(auth()->user()->isSuperadmin())
+                        <!-- Tenant Selection -->
+                        <div class="fv-row mb-7">
+                            <label class="required fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <select id="add_asset_company_id" class="form-select form-select-solid" required>
+                                <option value="">Pilih Tenant Perusahaan</option>
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @else
+                        <!-- Tenant (Terkunci Otomatis) -->
+                        <input type="hidden" id="add_asset_company_id" value="{{ auth()->user()->company_id }}" />
+                        <div class="fv-row mb-7">
+                            <label class="fs-6 fw-semibold mb-2">Perusahaan / Tenant</label>
+                            <input type="text" class="form-control form-control-solid bg-light" value="{{ auth()->user()->company?->name }}" readonly disabled />
+                        </div>
+                    @endif
 
                     <div class="row g-9 mb-7">
                         <div class="col-md-6 fv-row">
